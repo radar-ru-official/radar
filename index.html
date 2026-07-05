@@ -1,71 +1,88 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<title>РАДАР | МОНИТОРИНГ</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<style>
-body{margin:0;background:#0a0a0b;color:#e0e0e0;font-family:sans-serif;overflow:hidden}
-#map{height:100vh;width:100%;filter:contrast(1.05)}
-.panel{position:absolute;top:20px;left:20px;z-index:1000;width:340px;background:rgba(15,15,18,0.95);border-left:4px solid #0039a6;padding:20px}
-.brand{font-weight:bold;margin-bottom:20px;letter-spacing:1px}
-.item{background:#16161a;padding:10px;margin-bottom:8px;border-left:4px solid #333;font-size:13px}
-.uab{border-color:#ff0000;background:#2a0000}
-.rocket{border-color:#b30000}
-.alarm{border-color:#e67e22}
-.bpla{border-color:#f1c40f}
-#pop{position:absolute;z-index:2000;background:rgba(0,0,0,0.9);padding:8px;border:1px solid #444;pointer-events:none;opacity:0;font-size:12px}
-</style>
+    <meta charset="UTF-8">
+    <title>РАДАР МОНИТОРИНГ РФ</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { --bg: #0a0a0b; --panel: rgba(15, 15, 18, 0.95); --accent: #0056b3; }
+        body { margin: 0; background: var(--bg); color: #e0e0e0; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        #map { height: 100vh; width: 100%; filter: contrast(1.05) brightness(0.95); }
+        
+        .dashboard { position: absolute; top: 20px; left: 20px; z-index: 1000; width: 350px; height: 90vh; display: flex; flex-direction: column; background: var(--panel); border-left: 4px solid var(--accent); box-shadow: 10px 0 30px rgba(0,0,0,0.5); padding: 20px; }
+        .header { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 15px; }
+        .title { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: 1px; }
+        .status-bar { font-size: 11px; color: #888; margin-top: 5px; display: flex; justify-content: space-between; }
+        
+        #alerts-container { flex-grow: 1; overflow-y: auto; padding-right: 5px; }
+        #alerts-container::-webkit-scrollbar { width: 4px; }
+        #alerts-container::-webkit-scrollbar-thumb { background: #333; }
+
+        .alert-card { background: #16161a; padding: 12px; margin-bottom: 10px; border-left: 4px solid #444; border-radius: 2px; }
+        .alert-card.uab { border-color: #ff0000; background: #2a1010; }
+        .alert-card.rocket { border-color: #b30000; }
+        .alert-card.alarm { border-color: #e67e22; }
+        .alert-card.bpla { border-color: #f1c40f; }
+
+        .reg-name { font-weight: 600; font-size: 14px; display: block; }
+        .status-text { font-size: 12px; color: #ccc; margin-top: 4px; }
+        .live-dot { height: 8px; width: 8px; background: #00ff00; border-radius: 50%; display: inline-block; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    </style>
 </head>
 <body>
-<div class="panel">
-<div class="brand">ГРАЖДАНСКИЙ МОНИТОРИНГ</div>
-<div id="log">Подключение...</div>
+
+<div class="dashboard">
+    <div class="header">
+        <div class="title">СИСТЕМА ГРАЖДАНСКОЙ ОБОРОНЫ</div>
+        <div class="status-bar">
+            <span><span class="live-dot"></span> LIVE FEED</span>
+            <span id="last-sync">Обновление...</span>
+        </div>
+    </div>
+    <div id="alerts-container">
+        <div class="alert-card">Загрузка данных мониторинга...</div>
+    </div>
 </div>
-<div id="pop"></div>
+
 <div id="map"></div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const map=L.map('map',{zoomControl:false}).setView([62,50],4);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
-let gd=null;
-function getLvl(st){
-    let s=st.toLowerCase();
-    if(s.includes('уаб')) return {c:'#ff0000',p:4,cls:'uab'};
-    if(s.includes('ракетная')) return {c:'#b30000',p:3,cls:'rocket'};
-    if(s.includes('тревога')) return {c:'#e67e22',p:2,cls:'alarm'};
-    if(s.includes('бпла')) return {c:'#f1c40f',p:1,cls:'bpla'};
-    return {c:'#1a1a1d',p:0,cls:''};
-}
-function chk(al,nm){
-    let n=nm.toLowerCase().replace(/ область| край| республика/g,"").trim();
-    for(let k in al){
-        let ak=k.toLowerCase().replace(/ область| край| республика/g,"").trim();
-        if(n.includes(ak)||ak.includes(n)) return getLvl(al[k].status);
-    }
-    return {c:'#1a1a1d',p:0,cls:''};
-}
-function upd(){
-    if(!gd)return;
-    fetch('alert.json?r='+Math.random()).then(r=>r.json()).then(al=>{
-        if(window.lyr)map.removeLayer(window.lyr);
-        window.lyr=L.geoJSON(gd,{
-            style:f=>({fillColor:chk(al,f.properties.name).c,color:'#333',weight:1,fillOpacity:0.7}),
-            onEachFeature:(f,l)=>{
-                l.on('mouseover',e=>{
-                    let lvl=chk(al,f.properties.name);
-                    let p=document.getElementById('pop');
-                    p.innerHTML=`<b>${f.properties.name}</b><br>${lvl.p>0?'Угроза активна':'Штатно'}`;
-                    p.style.opacity='1';p.style.left=(e.originalEvent.pageX+10)+'px';p.style.top=(e.originalEvent.pageY+10)+'px';
+    const map = L.map('map', {zoomControl: false}).setView([50.0, 36.0], 6);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
+
+    function update() {
+        fetch('alert.json?t=' + Date.now())
+        .then(r => r.json())
+        .then(data => {
+            const container = document.getElementById('alerts-container');
+            const sync = document.getElementById('last-sync');
+            let html = '';
+            let keys = Object.keys(data);
+            
+            if (keys.length === 0) {
+                html = '<div class="alert-card">Все зоны под контролем.</div>';
+            } else {
+                keys.forEach(k => {
+                    let s = data[k].status.toLowerCase();
+                    let cls = s.includes('уаб') ? 'uab' : 
+                              s.includes('ракетная') ? 'rocket' : 
+                              s.includes('тревога') ? 'alarm' : 'bpla';
+                    html += `
+                        <div class="alert-card ${cls}">
+                            <span class="reg-name">${k}</span>
+                            <span class="status-text">${data[k].status}</span>
+                        </div>`;
                 });
-                l.on('mouseout',()=>document.getElementById('pop').style.opacity='0');
             }
-        }).addTo(map);
-        let ks=Object.keys(al).sort((a,b)=>getLvl(al[b].status).p-getLvl(al[a].status).p);
-        document.getElementById('log').innerHTML=ks.length?ks.map(k=>`<div class="item ${getLvl(al[k].status).cls}"><b>${k}</b><br>${al[k].status}</div>`).join(''):'Все зоны под контролем.';
-    });
-}
-fetch('russia.geojson').then(r=>r.json()).then(d=>{gd=d;upd();setInterval(upd,5000);});
+            container.innerHTML = html;
+            sync.innerText = 'Обновлено: ' + new Date().toLocaleTimeString();
+        });
+    }
+
+    setInterval(update, 3000);
+    update();
 </script>
 </body>
 </html>
