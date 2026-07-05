@@ -2,87 +2,78 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>RADAR | Мониторинг</title>
+    <title>RADAR_DEFENSE_SYSTEM</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-        body { margin: 0; padding: 0; background: #0a0a0c; color: #fff; font-family: 'Inter', sans-serif; overflow: hidden; }
-        #map { height: 100vh; width: 100%; filter: grayscale(0.2) contrast(1.2); }
-        
-        /* Панель */
-        .panel { position: absolute; top: 20px; left: 20px; z-index: 1000; background: rgba(15, 17, 26, 0.85); backdrop-filter: blur(10px); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-        h1 { font-size: 18px; margin: 0 0 15px 0; letter-spacing: 2px; text-transform: uppercase; color: #e0e0e0; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .item { font-size: 13px; margin: 8px 0; display: flex; align-items: center; }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; }
-        
-        /* Легенда */
-        .legend { position: absolute; bottom: 30px; left: 20px; z-index: 1000; background: rgba(15, 17, 26, 0.85); padding: 15px; border-radius: 8px; border: 1px solid #333; font-size: 12px; }
-        .legend-item { display: flex; align-items: center; margin: 5px 0; }
-        
-        /* Время обновления */
-        #time { position: absolute; bottom: 30px; right: 20px; z-index: 1000; font-size: 11px; color: #888; }
+        body { margin: 0; background: #000; color: #fff; font-family: 'Courier New', monospace; }
+        #map { height: 100vh; width: 100%; }
+        /* Темная панель */
+        .ui { position: absolute; top: 20px; left: 20px; z-index: 1000; background: #000; border: 1px solid #222; padding: 15px; width: 300px; box-shadow: 0 0 10px #000; }
     </style>
 </head>
 <body>
 
-<div class="panel">
-    <h1>RADAR STATUS</h1>
-    <div id="alerts">Загрузка данных...</div>
+<div class="ui">
+    <div style="color:#00ff41; margin-bottom:10px;">[LIVE_MONITORING_ACTIVE]</div>
+    <div id="log">SYSTEM_READY...</div>
 </div>
 
-<div class="legend">
-    <div class="legend-item"><div class="status-dot" style="background:#ff4757"></div> Ракетная угроза</div>
-    <div class="legend-item"><div class="status-dot" style="background:#ffa502"></div> Опасность БПЛА</div>
-    <div class="legend-item"><div class="status-dot" style="background:#2ed573"></div> Чисто</div>
-</div>
-
-<div id="time">Обновление: --:--:--</div>
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    var map = L.map('map', {zoomControl: false}).setView([55.0, 45.0], 5);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+    const map = L.map('map', {zoomControl: false}).setView([60.0, 50.0], 4);
+    // Темная подложка
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
 
-    var regionCoords = {
-        "Московская область": [55.6, 37.5], "Белгородская область": [50.6, 36.6],
-        "Курская область": [51.7, 36.2], "Воронежская область": [51.6, 39.2],
-        "Брянская область": [53.2, 34.3], "Пензенская область": [53.2, 45.0],
-        "Республика Мордовия": [54.2, 45.2], "Ростовская область": [47.2, 39.7],
-        "Краснодарский край": [45.0, 39.0], "Саратовская область": [51.5, 46.0]
-    };
+    let geoData = null;
+    let alerts = {};
 
-    var circles = {};
+    // 1. Грузим границы (файл regions.geojson должен лежать в папке)
+    fetch('regions.geojson')
+        .then(r => r.json())
+        .then(data => { geoData = data; updateMap(); });
 
+    // 2. Грузим угрозы
     function update() {
-        fetch('alert.json?t=' + new Date().getTime())
+        fetch('alert.json?t=' + Date.now())
             .then(r => r.json())
-            .then(d => {
-                let alertsDiv = document.getElementById('alerts');
-                alertsDiv.innerHTML = '';
+            .then(d => { alerts = d; updateMap(); });
+    }
+
+    // 3. Рендерим карту
+    function updateMap() {
+        if (!geoData) return;
+        
+        // Удаляем старый слой
+        if (window.layer) map.removeLayer(window.layer);
+
+        window.layer = L.geoJSON(geoData, {
+            style: (feature) => {
+                let name = feature.properties.name; // Убедись, что в geojson есть поле name
+                let alert = alerts[name];
                 
-                // Обновляем время
-                document.getElementById('time').innerText = "Последнее обновление: " + new Date().toLocaleTimeString();
-
-                // Очистка старого
-                for (let r in circles) { map.removeLayer(circles[r]); }
-                circles = {};
-
-                let found = false;
-                for (let p in d) {
-                    found = true;
-                    let color = d[p].status.includes("РАКЕТНАЯ") ? "#ff4757" : "#ffa502";
-                    
-                    alertsDiv.innerHTML += `<div class="item"><div class="status-dot" style="background:${color}"></div> <b>${p}</b></div>`;
-                    
-                    if (regionCoords[p]) {
-                        circles[p] = L.circle(regionCoords[p], {
-                            color: color, fillColor: color, fillOpacity: 0.6, radius: 70000
-                        }).addTo(map).bindPopup(`<b>${p}</b><br><span style="color:${color}">${d[p].status}</span><br><i>Источник: ${d[p].source}</i>`);
-                    }
+                let fillColor = "#000"; // Черный цвет для всех
+                let color = "#1a1a1a";  // Цвет границы
+                
+                if (alert) {
+                    fillColor = alert.status.includes("РАКЕТНАЯ") ? "#ff0000" : "#ffcc00";
+                    color = "#fff";
                 }
-                if (!found) alertsDiv.innerHTML = "Обстановка спокойная.";
-            });
+                
+                return { fillColor: fillColor, weight: 1, opacity: 1, color: color, fillOpacity: 0.7 };
+            },
+            onEachFeature: (f, l) => {
+                let name = f.properties.name;
+                if (alerts[name]) {
+                    l.bindPopup(`<b>${name}</b><br>${alerts[name].status}`);
+                }
+            }
+        }).addTo(map);
+
+        // Обновляем лог
+        const log = document.getElementById('log');
+        log.innerHTML = Object.keys(alerts).map(k => `> ${k}: ${alerts[k].status}`).join('<br>') || "> STATUS: ALL_CLEAR";
     }
 
     setInterval(update, 5000);
