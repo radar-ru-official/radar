@@ -5,105 +5,114 @@
     <title>Radar System | Strategic Monitoring</title>
     <style>
         :root {
-            --bg: #050505; --panel: #0d0d0d; --border: #222;
-            --yellow: #ffcc00; --red: #ff0000; --dark-red: #8b0000; --brown: #8b4513;
+            --bg: #0c0c0e; --panel: #141416; --safe: #33363b;
+            --yellow: #ffcc00; --red: #ff3333; --dark-red: #8b0000;
         }
-        body { background: var(--bg); color: #e0e0e0; font-family: 'Inter', sans-serif; margin: 0; }
-        .flag-bar { height: 4px; width: 100%; background: linear-gradient(90deg, #fff 33%, #0039a6 33%, #0039a6 66%, #d52b1e 66%); box-shadow: 0 0 15px rgba(255,255,255,0.3); }
-        .container { display: grid; grid-template-columns: 1fr 350px; gap: 20px; padding: 20px; height: 90vh; }
-        #map-area { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        #panel-area { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; overflow-y: auto; }
-        #map-area svg { width: 100%; height: 100%; max-height: 80vh; }
-        #map-area path { fill: #1a1a1a; stroke: #333; stroke-width: 1px; transition: fill 0.5s ease; cursor: default; }
-        .threat-yellow { fill: var(--yellow) !important; stroke: #fff !important; }
-        .threat-red { fill: var(--red) !important; stroke: #fff !important; }
-        .threat-dark-red { fill: var(--dark-red) !important; stroke: #fff !important; }
-        .threat-brown { fill: var(--brown) !important; stroke: #fff !important; }
-        .alert-card { padding: 12px; margin-bottom: 10px; border-left: 4px solid #555; background: #151515; border-radius: 0 4px 4px 0; font-size: 0.9rem; animation: slideIn 0.3s ease-out; }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+        body { background: var(--bg); color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
+        
+        #map-container { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
+        svg { width: 95%; height: 95%; }
+        path { fill: var(--safe); stroke: #2a2a2a; stroke-width: 0.5px; transition: fill 0.3s; cursor: pointer; }
+        
+        .threat-yellow { fill: var(--yellow) !important; }
+        .threat-red { fill: var(--red) !important; }
+        .threat-dark-red { fill: var(--dark-red) !important; }
+
+        /* Тултип (popup) */
+        #tooltip { position: absolute; background: rgba(20, 20, 25, 0.95); padding: 10px; border-radius: 4px; border: 1px solid #444; pointer-events: none; display: none; font-size: 0.9rem; z-index: 1000; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+
+        /* Легенда (как на image_0f4ac3.jpg) */
+        .legend { position: fixed; bottom: 30px; left: 30px; background: rgba(20, 20, 25, 0.9); padding: 15px; border-radius: 6px; border: 1px solid #333; }
+        .legend-item { display: flex; align-items: center; margin: 8px 0; font-size: 0.85rem; }
+        .box { width: 14px; height: 14px; margin-right: 12px; border-radius: 2px; }
+
+        /* Время обновления */
+        #timestamp { position: fixed; bottom: 30px; right: 30px; font-size: 0.8rem; color: #777; }
     </style>
 </head>
 <body>
-    <div class="flag-bar"></div>
-    <div class="container">
-        <div id="map-area">Загрузка карты...</div>
-        <div id="panel-area">
-            <h2 style="font-size: 1.2rem; margin-top:0; color: #aaa;">STATUS MONITOR</h2>
-            <div id="alerts-list">Ожидание данных...</div>
-        </div>
+
+    <div id="tooltip"></div>
+
+    <div id="map-container">
+        <!-- Сюда подгрузится map.svg -->
     </div>
 
+    <div class="legend">
+        <div class="legend-item"><div class="box" style="background:var(--safe)"></div> Безопасно</div>
+        <div class="legend-item"><div class="box" style="background:var(--yellow)"></div> Опасность БПЛА</div>
+        <div class="legend-item"><div class="box" style="background:var(--red)"></div> Тревога БПЛА / ПВО</div>
+        <div class="legend-item"><div class="box" style="background:var(--dark-red)"></div> Ракетная угроза</div>
+    </div>
+
+    <div id="timestamp">Последнее обновление: --:--:--</div>
+
     <script>
-        // Полный маппинг: от западных границ до Урала и Севера
+        const tooltip = document.getElementById('tooltip');
+        
+        // Маппинг всех регионов
         const regionMapping = {
-            // Юг и Черноземье
-            "Белгородская область": "RU-BEL", "Курская область": "RU-KRS",
-            "Брянская область": "RU-BRY", "Тульская область": "RU-TUL",
-            "Орловская область": "RU-ORL", "Липецкая область": "RU-LIP",
-            "Воронежская область": "RU-VOR", "Московская область": "RU-MOS",
-            "г. Москва": "RU-MOW", "Калужская область": "RU-KLU",
-            "Рязанская область": "RU-RYA", "Тамбовская область": "RU-TAM",
-            "Краснодарский край": "RU-KDA", "Ростовская область": "RU-ROS",
-            "Республика Крым": "RU-CR", "Севастополь": "RU-SEV",
-            "Смоленская область": "RU-SMO", "Тверская область": "RU-TVE",
-            "Ярославская область": "RU-YAR", "Владимирская область": "RU-VLA",
-            "Волгоградская область": "RU-VGG",
-            // Поволжье и Центр
-            "Нижегородская область": "RU-NIZ", "Самарская область": "RU-SAM",
-            "Саратовская область": "RU-SAR", "Пензенская область": "RU-PNZ",
-            "Республика Татарстан": "RU-TA", "Республика Башкортостан": "RU-BA",
-            // Урал и Глубь
-            "Пермский край": "RU-PER", "Свердловская область": "RU-SVE",
-            "Челябинская область": "RU-CHE", "Курганская область": "RU-KGN",
-            "Оренбургская область": "RU-ORE",
-            // Север
-            "г. Санкт-Петербург": "RU-SPE", "Ленинградская область": "RU-LEN",
-            "Мурманская область": "RU-MUR", "Архангельская область": "RU-ARK",
+            "Белгородская область": "RU-BEL", "Курская область": "RU-KRS", "Брянская область": "RU-BRY", 
+            "Тульская область": "RU-TUL", "Орловская область": "RU-ORL", "Липецкая область": "RU-LIP", 
+            "Воронежская область": "RU-VOR", "Московская область": "RU-MOS", "г. Москва": "RU-MOW", 
+            "Калужская область": "RU-KLU", "Рязанская область": "RU-RYA", "Тамбовская область": "RU-TAM", 
+            "Краснодарский край": "RU-KDA", "Ростовская область": "RU-ROS", "Республика Крым": "RU-CR", 
+            "Севастополь": "RU-SEV", "Смоленская область": "RU-SMO", "Тверская область": "RU-TVE", 
+            "Ярославская область": "RU-YAR", "Владимирская область": "RU-VLA", "Волгоградская область": "RU-VGG",
+            "Нижегородская область": "RU-NIZ", "Самарская область": "RU-SAM", "Саратовская область": "RU-SAR", 
+            "Пензенская область": "RU-PNZ", "Республика Татарстан": "RU-TA", "Республика Башкортостан": "RU-BA",
+            "Пермский край": "RU-PER", "Свердловская область": "RU-SVE", "Челябинская область": "RU-CHE", 
+            "Курганская область": "RU-KGN", "Оренбургская область": "RU-ORE", "г. Санкт-Петербург": "RU-SPE", 
+            "Ленинградская область": "RU-LEN", "Мурманская область": "RU-MUR", "Архангельская область": "RU-ARK", 
             "Республика Коми": "RU-KO", "Карелия": "RU-KR"
         };
 
         const threatMap = {
             'опасность по бпла': 'threat-yellow',
-            'тревога по бпла': 'threat-red', 'работа пво': 'threat-red',
-            'фиксация бпла': 'threat-red', 'угроза атаки': 'threat-red',
-            'ракетная опасность': 'threat-dark-red',
-            'уаб опасность': 'threat-brown', 'авиационная опасность': 'threat-brown'
+            'тревога по бпла': 'threat-red', 'работа пво': 'threat-red', 'фиксация бпла': 'threat-red', 'угроза атаки': 'threat-red',
+            'ракетная опасность': 'threat-dark-red'
         };
 
         async function init() {
             try {
-                const response = await fetch('map.svg');
-                document.getElementById('map-area').innerHTML = await response.text();
-                updateDashboard();
-                setInterval(updateDashboard, 3000);
-            } catch(e) { document.getElementById('map-area').innerHTML = "Ошибка загрузки map.svg"; }
+                const resp = await fetch('map.svg');
+                document.getElementById('map-container').innerHTML = await resp.text();
+                
+                // События для тултипа
+                document.querySelectorAll('path').forEach(path => {
+                    path.onmousemove = (e) => { tooltip.style.left = (e.pageX + 15) + 'px'; tooltip.style.top = (e.pageY + 15) + 'px'; };
+                    path.onmouseenter = (e) => { 
+                        tooltip.style.display = 'block'; 
+                        tooltip.innerHTML = `<strong>${e.target.id}</strong>`; 
+                    };
+                    path.onmouseleave = () => tooltip.style.display = 'none';
+                });
+                
+                update();
+                setInterval(update, 5000);
+            } catch(e) { console.error("Карта не загрузилась"); }
         }
 
-        async function updateDashboard() {
+        async function update() {
             try {
-                const response = await fetch('alert.json?t=' + Date.now());
-                const data = await response.json();
-                document.querySelectorAll('#map-area path').forEach(p => p.className.baseVal = '');
-                const list = document.getElementById('alerts-list');
-                list.innerHTML = '';
+                const res = await fetch('alert.json?t=' + Date.now());
+                const data = await res.json();
+                document.getElementById('timestamp').innerText = "Последнее обновление: " + new Date().toLocaleTimeString();
                 
-                let hasAlerts = false;
+                // Сброс цветов
+                document.querySelectorAll('path').forEach(p => p.className.baseVal = '');
+                
+                // Окраска
                 for (let reg in data) {
-                    const status = data[reg].toLowerCase();
                     const svgId = regionMapping[reg];
                     if (svgId) {
                         const el = document.getElementById(svgId);
-                        for (let key in threatMap) {
-                            if (status.includes(key)) { if(el) el.className.baseVal = threatMap[key]; break; }
+                        const status = data[reg].toLowerCase();
+                        for(let key in threatMap) {
+                            if(status.includes(key)) { if(el) el.className.baseVal = threatMap[key]; break; }
                         }
                     }
-                    const card = document.createElement('div');
-                    card.className = 'alert-card';
-                    card.innerHTML = `<strong>${reg}</strong><br><span style="color:#bbb">${data[reg]}</span>`;
-                    list.appendChild(card);
-                    hasAlerts = true;
                 }
-                if (!hasAlerts) list.innerHTML = '<div class="alert-card" style="border-left-color:#2ecc71; color:#2ecc71;">✅ Небо чистое.</div>';
             } catch(e) {}
         }
         init();
