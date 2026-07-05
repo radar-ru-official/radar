@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мониторинг опасностей РФ</title>
+    <!-- Подключаем стили карты Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com" />
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0f1115;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        /* Стилизация всплывающего окна под ваш скриншот */
+        .custom-popup .leaflet-popup-content-wrapper {
+            background: #1a1d24;
+            color: #fff;
+            border-radius: 6px;
+            padding: 5px;
+            border: 1px solid #3a3f4d;
+        }
+        .custom-popup .leaflet-popup-tip {
+            background: #1a1d24;
+        }
+        .popup-title {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #a0a5b5;
+        }
+        .popup-status {
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            color: #ff4d4d;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #ff4d4d;
+            border-radius: 50%;
+            margin-right: 8px;
+            display: inline-block;
+        }
+        /* Стили для легенды в углу */
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(26, 29, 36, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1000;
+            font-size: 12px;
+            border: 1px solid #3a3f4d;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Блок для карты -->
+    <div id="map"></div>
+
+    <!-- Легенда карты -->
+    <div class="legend">
+        <div class="legend-item"><div class="legend-color" style="background: #22252c;"></div> Безопасно</div>
+        <div class="legend-item"><div class="legend-color" style="background: #d4af37;"></div> Опасность БПЛА</div>
+        <div class="legend-item"><div class="legend-color" style="background: #b22222;"></div> Тревога БПЛА</div>
+        <div class="legend-item"><div class="legend-color" style="background: #8b0000;"></div> Ракетная угроза</div>
+    </div>
+
+    <!-- Скрипты карты -->
+    <script src="https://unpkg.com"></script>
+    <script>
+        // Инициализация карты с фокусом на европейскую часть РФ
+        const map = L.map('map', {
+            zoomControl: false
+        }).setView([55.7558, 41.6173], 5);
+
+        // Подключаем темную тему подложки карт (CartoDB Dark Matter)
+        L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap contributors © CARTO'
+        }).addTo(map);
+
+        // Пример добавления региона (Пензенская область) в виде маркера с кастомным поп-апом
+        // Чтобы закрасить всю область целиком, сюда загружаются GeoJSON-координаты границ регионов России
+        const penzaCoords = [53.2007, 44.8314]; 
+        
+        const popupContent = `
+            <div class="popup-title">Пензенская область</div>
+            <div class="popup-status">
+                <span class="status-dot"></span> 🚨 РАКЕТНАЯ ОПАСНОСТЬ! Укрытие!
+            </div>
+        `;
+
+        const customOptions = {
+            'className' : 'custom-popup',
+            'closeButton': false
+        }
+
+        // Автоматически открываем окно на карте
+        L.popup(customOptions)
+            .setLatLng(penzaCoords)
+            .setContent(popupContent)
+            .openOn(map);
+
+    </script>
+</body>
+</html>
