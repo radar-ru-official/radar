@@ -2,279 +2,92 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Система мониторинга "Радар"</title>
-    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта мониторинга</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root {
-            --bg: #090a0c;
-            --panel: rgba(13, 16, 21, 0.95);
-            --border: #2f353d;
-            --gold: #c5a059;
-            --safe: #1c1f24;
-            --bpla: #ffc107;
-            --alert: #e52e2e;
-            --missile: #7a0000;
-            --avia: #8b4513;
-        }
-
-        body { 
-            margin: 0; 
-            background: var(--bg); 
-            color: #fff; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            overflow: hidden; 
-            user-select: none;
-        }
-
-        .flag-neon { 
-            height: 5px; 
-            width: 100%; 
-            background: linear-gradient(90deg, #ffffff 33%, #0039a6 33%, #0039a6 66%, #d52b1e 66%);
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.25), 0 0 10px rgba(0, 57, 166, 0.3);
-            position: relative;
-            z-index: 999;
-        }
-
-        #screen { 
-            width: 100vw; 
-            height: calc(100vh - 5px); 
-            position: relative; 
-            background: radial-gradient(circle at 50% 50%, #141920 0%, #090a0c 100%);
-        }
-
-        svg { width: 100%; height: 100%; }
-
-        .region { 
-            fill: var(--safe); 
-            stroke: var(--border); 
-            stroke-width: 1.2; 
-            stroke-linejoin: round;
-            transition: fill 0.25s ease, stroke 0.2s ease; 
-            cursor: pointer; 
-        }
-
-        .region:hover { 
-            stroke: var(--gold); 
-            stroke-width: 2; 
-            z-index: 50;
-        }
-
-        .dashboard-legend { 
-            position: absolute; 
-            bottom: 25px; 
-            left: 25px; 
-            background: var(--panel); 
-            padding: 16px 20px; 
-            border: 1px solid #252a31; 
-            border-radius: 4px;
-            box-shadow: 0 12px 35px rgba(0,0,0,0.6);
-        }
-
-        .lg-item { 
-            display: flex; 
-            align-items: center; 
-            margin: 8px 0; 
-            font-size: 12.5px; 
-            color: #9ba4b0; 
-            font-weight: 500;
-        }
-
-        .lg-marker { 
-            width: 9px; 
-            height: 9px; 
-            margin-right: 12px; 
-            border-radius: 50%; 
-            box-shadow: 0 0 6px rgba(0,0,0,0.3);
-        }
-
-        #live-timer { 
-            position: absolute; 
-            bottom: 25px; 
-            right: 25px; 
-            background: var(--panel); 
-            padding: 12px 22px; 
-            border: 1px solid var(--gold); 
-            border-radius: 4px; 
-            font-size: 13px; 
-            color: var(--gold); 
-            font-variant-numeric: tabular-nums;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            box-shadow: 0 12px 35px rgba(0,0,0,0.6);
-        }
-
-        .map-popup { 
-            position: absolute; 
-            background: var(--panel); 
-            padding: 12px 16px; 
-            border: 1px solid var(--gold); 
-            display: none; 
-            pointer-events: none; 
-            z-index: 9999; 
-            font-size: 13px; 
-            border-radius: 4px; 
-            box-shadow: 0 8px 24px rgba(0,0,0,0.7); 
-        }
-
-        .popup-title { font-weight: 700; color: #fff; font-size: 14px; margin-bottom: 4px; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #0b0f14; font-family: sans-serif; overflow: hidden; }
+        #map { width: 100%; height: 100%; }
+        .legend { position: fixed; bottom: 20px; left: 20px; background: rgba(15, 20, 26, 0.9); padding: 15px; border-radius: 8px; color: #fff; z-index: 1000; font-size: 12px; }
+        .legend-item { display: flex; align-items: center; margin: 5px 0; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; }
+        .tooltip { position: fixed; background: #000; color: #fff; padding: 8px; border-radius: 4px; pointer-events: none; display: none; z-index: 2000; font-size: 12px; }
     </style>
 </head>
 <body>
 
-<div class="flag-neon"></div>
-
-<div id="screen">
-    <svg id="map" viewBox="0 0 1000 500">
-        <!-- Калининградская область -->
-        <path id="RU-KGD" class="region" d="M80,140 L105,135 L110,150 L85,155 Z" />
-        
-        <!-- Мурманск / Карелия / Северо-Запад -->
-        <path id="RU-MUR" class="region" d="M180,20 L220,15 L230,45 L190,55 Z" />
-        <path id="RU-KAR" class="region" d="M170,55 L210,45 L220,95 L180,105 Z" />
-        <path id="RU-LEN" class="region" d="M150,105 L190,95 L200,125 L160,135 Z" />
-        
-        <!-- Центр / Приграничные -->
-        <path id="RU-PSO" class="region" d="M130,135 L160,130 L170,165 L140,170 Z" />
-        <path id="RU-SMO" class="region" d="M150,170 L185,165 L195,195 L160,200 Z" />
-        <path id="RU-TVE" class="region" d="M175,135 L225,125 L235,165 L185,170 Z" />
-        <path id="RU-MOS" class="region" d="M200,175 L240,165 L250,195 L210,205 Z" />
-        <path id="RU-KAL" class="region" d="M180,205 L210,195 L220,225 L190,235 Z" />
-        <path id="RU-BRY" class="region" d="M155,215 L190,205 L195,235 L160,245 Z" />
-        
-        <!-- Черноземье / Поволжье -->
-        <path id="RU-ORL" class="region" d="M195,235 L225,225 L230,250 L200,260 Z" />
-        <path id="RU-KUR" class="region" d="M175,255 L210,245 L215,275 L180,285 Z" />
-        <path id="RU-BEL" class="region" d="M185,285 L220,275 L230,305 L195,315 Z" />
-        <path id="RU-VOR" class="region" d="M225,255 L265,245 L275,285 L235,295 Z" />
-        <path id="RU-TAM" class="region" d="M255,225 L285,215 L295,245 L265,255 Z" />
-        <path id="RU-PEN" class="region" d="M285,220 L325,210 L335,245 L295,255 Z" />
-        <path id="RU-SAR" class="region" d="M295,255 L355,240 L365,285 L305,300 Z" />
-        
-        <!-- Южный сектор / Крым -->
-        <path id="RU-KRA" class="region" d="M165,345 L215,335 L225,375 L175,385 Z" />
-        <path id="RU-ROS" class="region" d="M215,315 L265,305 L275,345 L225,355 Z" />
-        <path id="RU-VOL" class="region" d="M265,295 L325,280 L335,325 L275,340 Z" />
-        <path id="RU-AST" class="region" d="M325,325 L365,315 L375,355 L335,365 Z" />
-        
-        <!-- Урал / Поволжье Восток -->
-        <path id="RU-NIZ" class="region" d="M285,175 L335,165 L345,205 L295,215 Z" />
-        <path id="RU-SAM" class="region" d="M335,210 L375,200 L385,235 L345,245 Z" />
-        <path id="RU-TAT" class="region" d="M345,170 L395,160 L405,195 L355,205 Z" />
-        <path id="RU-BAS" class="region" d="M395,185 L445,175 L455,225 L405,235 Z" />
-        <path id="RU-SVE" class="region" d="M435,125 L505,115 L515,195 L445,205 Z" />
-        <path id="RU-CHE" class="region" d="M445,210 L495,200 L505,245 L455,255 Z" />
-        
-        <!-- Сибирь -->
-        <path id="RU-OMS" class="region" d="M515,205 L565,205 L575,275 L525,275 Z" />
-        <path id="RU-NVS" class="region" d="M575,205 L625,205 L635,275 L585,275 Z" />
-        <path id="RU-TOM" class="region" d="M565,145 L645,145 L635,200 L555,200 Z" />
-        <path id="RU-KYA" class="region" d="M635,95 L755,75 L735,285 L645,275 Z" />
-        <path id="RU-IRK" class="region" d="M745,185 L815,175 L795,285 L745,295 Z" />
-        <path id="RU-BUR" class="region" d="M785,290 L835,280 L825,325 L775,335 Z" />
-        <path id="RU-ZAB" class="region" d="M825,260 L895,250 L885,320 Z" />
-        
-        <!-- Дальний Восток -->
-        <path id="RU-YAK" class="region" d="M765,45 L935,65 L895,205 L755,175 Z" />
-        <path id="RU-KHA" class="region" d="M885,205 L945,195 L925,305 L875,295 Z" />
-        <path id="RU-AMU" class="region" d="M845,215 L895,205 L885,255 L835,265 Z" />
-        <path id="RU-PRM" class="region" d="M895,315 L925,315 L915,365 Z" />
-        <path id="RU-MAG" class="region" d="M925,75 L985,95 L965,165 Z" />
-        <path id="RU-KAM" class="region" d="M965,135 L995,155 L965,245 Z" />
-        <path id="RU-SAK" class="region" d="M945,220 L965,220 L955,290 Z" />
-        <path id="RU-CHU" class="region" d="M925,15 L995,25 L975,85 Z" />
-    </svg>
-
-    <div class="dashboard-legend">
-        <div class="lg-item"><div class="lg-marker" style="background:var(--safe)"></div>Безопасно / Отбой</div>
-        <div class="lg-item"><div class="lg-marker" style="background:var(--bpla)"></div>Опасность БПЛА</div>
-        <div class="lg-item"><div class="lg-marker" style="background:var(--alert)"></div>Тревога / Угроза атаки / Работа ПВО</div>
-        <div class="lg-item"><div class="lg-marker" style="background:var(--missile)"></div>Ракетная опасность</div>
-        <div class="lg-item"><div class="lg-marker" style="background:var(--avia)"></div>Авиационная опасность / УАБ</div>
-    </div>
-
-    <div id="live-timer">Активность: Ожидание данных</div>
-    <div id="popup" class="map-popup"></div>
-</div>
+<div id="map"></div>
+<div class="legend" id="legend"></div>
+<div id="tooltip" class="tooltip"></div>
 
 <script>
-    const database = {
-        'RU-KGD': 'Калининградская область', 'RU-MUR': 'Мурманская область', 'RU-KAR': 'Республика Карелия',
-        'RU-LEN': 'Ленинградская область', 'RU-PSO': 'Псковская область', 'RU-SMO': 'Смоленская область',
-        'RU-TVE': 'Тверская область', 'RU-MOS': 'Московская область', 'RU-KAL': 'Калужская область',
-        'RU-BRY': 'Брянская область', 'RU-ORL': 'Орловская область', 'RU-KUR': 'Курская область',
-        'RU-BEL': 'Белгородская область', 'RU-VOR': 'Воронежская область', 'RU-TAM': 'Тамбовская область',
-        'RU-PEN': 'Пензенская область', 'RU-SAR': 'Саратовская область', 'RU-KRA': 'Краснодарский край',
-        'RU-ROS': 'Ростовская область', 'RU-VOL': 'Волгоградская область', 'RU-AST': 'Астраханская область',
-        'RU-NIZ': 'Нижегородская область', 'RU-SAM': 'Самарская область', 'RU-TAT': 'Республика Татарстан',
-        'RU-BAS': 'Республика Башкортостан', 'RU-SVE': 'Свердловская область', 'RU-CHE': 'Челябинская область',
-        'RU-OMS': 'Омская область', 'RU-NVS': 'Новосибирская область', 'RU-TOM': 'Томская область',
-        'RU-KYA': 'Красноярский край', 'RU-IRK': 'Иркутская область', 'RU-BUR': 'Республика Бурятия',
-        'RU-ZAB': 'Забайкальский край', 'RU-YAK': 'Республика Саха (Якутия)', 'RU-KHA': 'Хабаровский край',
-        'RU-AMU': 'Амурская область', 'RU-PRM': 'Приморский край', 'RU-MAG': 'Магаданская область',
-        'RU-KAM': 'Камчатский край', 'RU-SAK': 'Сахалинская область', 'RU-CHU': 'Чукотский АО'
+    const map = L.map('map', { zoomControl: true }).setView([62.0, 90.0], 3);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
+
+    const statusConfig = {
+        BPLA: { color: '#ffc107', text: 'БПЛА' },
+        ALERT: { color: '#e52e2e', text: 'ТРЕВОГА' },
+        MISSILE: { color: '#8b0000', text: 'РАКЕТНАЯ' },
+        AVIA: { color: '#8b4513', text: 'АВИАЦИЯ' },
+        OFF: { color: '#2f353d', text: 'ТИХО' }
     };
 
-    const statusMap = {
-        BPLA: { color: 'var(--bpla)', text: 'Опасность БПЛА', css: 'color:#ffc107' },
-        ALERT: { color: 'var(--alert)', text: 'ТРЕВОГА / УГРОЗА АТАКИ', css: 'color:#ff3333;font-weight:700' },
-        MISSILE: { color: 'var(--missile)', text: 'РАКЕТНАЯ ОПАСНОСТЬ (Укрытие!)', css: 'color:#ff4f4f;font-weight:800' },
-        AVIA: { color: 'var(--avia)', text: 'АВИАЦИОННАЯ УГРОЗА / УАБ', css: 'color:#e67e22' }
+    const regionKeywords = {
+        'моск': 'RU-MOS', 'пенз': 'RU-PEN', 'калуж': 'RU-KAL', 'ленингр': 'RU-LEN', 
+        'псков': 'RU-PSO', 'смолен': 'RU-SMO', 'твер': 'RU-TVE', 'брян': 'RU-BRY', 
+        'орлов': 'RU-ORL', 'курск': 'RU-KUR', 'белгород': 'RU-BEL', 'воронеж': 'RU-VOR', 
+        'тамбов': 'RU-TAM', 'саратов': 'RU-SAR', 'краснодар': 'RU-KRA', 'ростов': 'RU-ROS', 
+        'волгоград': 'RU-VOL', 'астрах': 'RU-AST', 'нижегор': 'RU-NIZ', 'самар': 'RU-SAM', 
+        'татарстан': 'RU-TAT', 'башкорт': 'RU-BAS', 'свердл': 'RU-SVE', 'челяб': 'RU-CHE', 
+        'омск': 'RU-OMS', 'новосиб': 'RU-NVS', 'томск': 'RU-TOM', 'краснояр': 'RU-KYA', 
+        'иркут': 'RU-IRK', 'бурят': 'RU-BUR', 'забайкал': 'RU-ZAB', 'якут': 'RU-YAK', 
+        'хабар': 'RU-KHA', 'амур': 'RU-AMU', 'примор': 'RU-PRM', 'магадан': 'RU-MAG', 
+        'камчат': 'RU-KAM', 'сахалин': 'RU-SAK', 'чукот': 'RU-CHU', 'крым': 'RU-KRM', 
+        'севастополь': 'RU-SEV', 'донец': 'RU-DNR', 'луган': 'RU-LNR', 'запорож': 'RU-ZAP', 'херсон': 'RU-HER'
     };
 
-    function broadcastActivity(regionId, code) {
-        const path = document.getElementById(regionId);
-        if (!path) return;
+    let currentAlerts = {};
+    let geoJsonLayer;
 
-        const mode = statusMap[code];
-        if (mode) {
-            path.style.fill = mode.color;
-            path.dataset.statusInfo = mode.text;
-            path.dataset.statusStyle = mode.css;
-        } else {
-            path.style.fill = 'var(--safe)';
-            path.dataset.statusInfo = 'Безопасно / Отбой';
-            path.dataset.statusStyle = 'color:#9ba4b0';
-        }
-        
-        document.getElementById('live-timer').innerText = 'Активность: ' + new Date().toLocaleTimeString();
+    function getCode(name) {
+        if(!name) return null;
+        let n = name.toLowerCase();
+        for(let key in regionKeywords) if(n.includes(key)) return regionKeywords[key];
+        return null;
     }
 
-    window.onload = () => {
-        svgPanZoom('#map', { 
-            zoomEnabled: true, 
-            controlIconsEnabled: false, 
-            fit: true, 
-            center: true, 
-            minZoom: 0.7, 
-            maxZoom: 20 
-        });
-    };
-
-    document.querySelectorAll('.region').forEach(el => {
-        el.onmousemove = (e) => {
-            const box = document.getElementById('popup');
-            box.style.display = 'block';
-            box.style.left = (e.pageX + 16) + 'px';
-            box.style.top = (e.pageY + 16) + 'px';
-            
-            const name = database[el.id] || el.id;
-            const text = el.dataset.statusInfo || 'Безопасно / Отбой';
-            const css = el.dataset.statusStyle || 'color:#9ba4b0';
-            
-            box.innerHTML = `<div class="popup-title">${name}</div><div style="font-size:12px;${css}">● ${text}</div>`;
-        };
-        
-        el.onmouseleave = () => {
-            document.getElementById('popup').style.display = 'none';
-        };
+    fetch('https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson')
+    .then(r => r.json()).then(data => {
+        geoJsonLayer = L.geoJSON(data, {
+            style: f => {
+                let code = getCode(f.properties.name);
+                let status = currentAlerts[code] || 'OFF';
+                return { fillColor: statusConfig[status].color, weight: 1, fillOpacity: 0.6, color: '#fff' };
+            },
+            onEachFeature: (f, l) => {
+                l.on('mouseover', e => {
+                    document.getElementById('tooltip').style.display = 'block';
+                    document.getElementById('tooltip').innerText = f.properties.name;
+                });
+                l.on('mousemove', e => {
+                    document.getElementById('tooltip').style.left = (e.originalEvent.clientX + 10) + 'px';
+                    document.getElementById('tooltip').style.top = (e.originalEvent.clientY + 10) + 'px';
+                });
+                l.on('mouseout', () => document.getElementById('tooltip').style.display = 'none');
+            }
+        }).addTo(map);
+        update();
     });
 
-    // Тесты реалтайма (для интеграции с твоим бэком просто вызывай broadcastActivity)
-    setTimeout(() => broadcastActivity('RU-PEN', 'MISSILE'), 1500);
-    setTimeout(() => broadcastActivity('RU-MOS', 'BPLA'), 3000);
-    setTimeout(() => broadcastActivity('RU-KAL', 'ALERT'), 4500);
-    setTimeout(() => broadcastActivity('RU-ZAB', 'AVIA'), 6000);
-    setTimeout(() => broadcastActivity('RU-PEN', 'OFF'), 9000); // Пример отбоя (перекрасит в дефолт и обновит таймер)
+    async function update() {
+        try {
+            let res = await fetch('alert.json?t=' + Date.now());
+            currentAlerts = await res.json();
+            geoJsonLayer.eachLayer(l => l.setStyle({ fillColor: statusConfig[currentAlerts[getCode(l.feature.properties.name)] || 'OFF'].color }));
+        } catch(e) {}
+        setTimeout(update, 5000);
+    }
 </script>
 </body>
 </html>
