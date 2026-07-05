@@ -2,80 +2,52 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Мониторинг</title>
-    <!-- Подключаем официальные карты Яндекс -->
-    <script src="https://yandex.ru" type="text/javascript"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Инфо-Табло Опасностей</title>
     <style>
-        body, html { margin:0; padding:0; width:100%; height:100%; background:#0f1115; font-family:sans-serif; overflow:hidden; }
-        #map { width:100%; height:100%; }
-        .popup-title { font-weight:bold; font-size:14px; margin-bottom:5px; color:#333; }
-        .popup-status { font-size:13px; font-weight:bold; }
-        .legend { position:absolute; bottom:20px; left:20px; background:rgba(26,29,36,0.95); padding:15px; border-radius:8px; color:#fff; z-index:1000; font-size:12px; border:1px solid #3a3f4d; }
-        .legend-item { display:flex; align-items:center; margin-bottom:8px; }
-        .legend-color { width:14px; height:14px; border-radius:3px; margin-right:10px; }
+        body, html { margin:0; padding:0; width:100%; height:100%; background:#0a0c10; font-family:sans-serif; color:#fff; display:flex; justify-content:center; align-items:center; overflow:hidden; }
+        .monitor-box { text-align:center; padding:40px; border-radius:12px; background:#11141a; border:2px solid #222733; max-width:90%; width:500px; box-shadow:0 10px 30px rgba(0,0,0,0.5); }
+        .system-title { font-size:12px; letter-spacing:2px; color:#52607a; text-transform:uppercase; margin-bottom:30px; font-weight:bold; }
+        #place { font-size:38px; font-weight:bold; margin-bottom:15px; color:#e1e7f0; }
+        #status { font-size:22px; font-weight:bold; padding:15px; border-radius:6px; background:#1c212c; border:1px solid #2d3547; display:inline-block; margin-top:10px; }
+        .footer-info { margin-top:40px; font-size:11px; color:#414b5e; }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div class="legend">
-        <div class="legend-item"><div class="legend-color" style="background:#22252c;"></div> Безопасно</div>
-        <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Опасность БПЛА</div>
-        <div class="legend-item"><div class="legend-color" style="background:#b22222;"></div> Тревога БПЛА</div>
-        <div class="legend-item"><div class="legend-color" style="background:#8b0000;"></div> Ракетная угроза</div>
+
+    <div class="monitor-box">
+        <div class="system-title">🚨 СИСТЕМА МОНИТОРИНГА РАДАР</div>
+        <div id="place">Загрузка данных...</div>
+        <div id="status" style="color:#a0a5b5;">Ожидание постов из ТГ</div>
+        <div class="footer-info">Данные обновляются автоматически каждые 15 секунд</div>
     </div>
 
     <script>
-        let myMap = null;
-        let myPlacemark = None;
-
-        ymaps.ready(init);
-
-        function init() {
-            // Создаем карту Яндекса с центром на РФ
-            myMap = new ymaps.Map("map", {
-                center: [55.7, 41.6],
-                zoom: 5,
-                controls: ['zoomControl']
-            });
-            loadData();
-            setInterval(loadData, 15000);
-        }
-
-        async function findPlace(name, txt, clr) {
-            try {
-                // Ищем координаты любого города/села через поиск Яндекса
-                let res = await ymaps.geocode(name + ', Россия');
-                let firstGeoObject = res.geoObjects.get(0);
-                if (firstGeoObject) {
-                    let coords = firstGeoObject.geometry.getCoordinates();
-                    
-                    if (myPlacemark) myMap.geoObjects.remove(myPlacemark);
-
-                    let html = `<div class="popup-title">${name}</div>
-                                <div class="popup-status" style="color:${clr};">${txt}</div>`;
-
-                    myPlacemark = new ymaps.Placemark(coords, {
-                        balloonContent: html
-                    }, {
-                        preset: 'islands#redIcon'
-                    });
-
-                    myMap.geoObjects.add(myPlacemark);
-                    myMap.setCenter(coords, 8);
-                    myPlacemark.balloon.open();
-                }
-            } catch(e) { console.log(e); }
-        }
-
         async function loadData() {
             try {
                 let r = await fetch('alert.json?t=' + Date.now());
                 let j = await r.json();
                 if (j && j.active) {
-                    findPlace(j.place, j.status, j.color);
+                    document.getElementById('place').innerText = j.place;
+                    document.getElementById('status').innerText = j.status;
+                    document.getElementById('status').style.color = j.color;
+                    document.getElementById('status').style.borderColor = j.color;
+                } else {
+                    document.getElementById('place').innerText = "РФ (Все регионы)";
+                    document.getElementById('status').innerText = "🟢 Обстановка спокойная";
+                    document.getElementById('status').style.color = "#22252c";
                 }
-            } catch(e) {}
+            } catch(e) {
+                // Если файла еще нет, показываем дефолтный статус
+                document.getElementById('place').innerText = "РФ (Все регионы)";
+                document.getElementById('status').innerText = "🟢 Обстановка спокойная";
+                document.getElementById('status').style.color = "#52607a";
+            }
         }
+
+        setInterval(loadData, 15000);
+        loadData();
     </script>
 </body>
 </html>
+
