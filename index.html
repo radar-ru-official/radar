@@ -11,7 +11,7 @@
         .custom-popup .leaflet-popup-content-wrapper { background:#161920; color:#fff; border-radius:6px; padding:10px 15px; border:1px solid #2d3440; box-shadow:0 10px 25px rgba(0,0,0,0.6); }
         .custom-popup .leaflet-popup-tip { background:#161920; border:1px solid #2d3440; }
         .popup-title { font-weight:bold; font-size:13px; margin-bottom:5px; color:#a0a5b5; text-align:center; }
-        .popup-status { font-size:14px; font-weight:bold; text-align:center; display:flex; align-items:center; justify-content:center; }
+        .popup-status { font-size:14px; font-weight:bold; text-align:center; }
         .legend { position:absolute; bottom:25px; left:25px; background:rgba(22,25,32,0.95); padding:15px; border-radius:8px; font-size:12px; border:1px solid #2d3440; z-index:1000; }
         .legend-item { display:flex; align-items:center; margin-bottom:8px; }
         .legend-color { width:14px; height:14px; border-radius:3px; margin-right:10px; border:1px solid rgba(255,255,255,0.1); }
@@ -29,10 +29,42 @@
     </div>
     <script src="https://unpkg.com"></script>
     <script>
-        const map = L.map('map', { zoomControl:false }).setView([53.5, 40.0], 5);
+        const map = L.map('map', { zoomControl:false }).setView([55.0, 70.0], 4);
         L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', { maxZoom: 10 }).addTo(map);
+        
         let geojsonLayer = null;
         let currentPopup = null;
+
+        // Полная база координат центров для всех регионов России (защита от падения скрипта)
+        const centerPoints = {
+            "Пенза": [53.20, 44.99], "Белгород": [50.60, 36.59], "Курск": [51.73, 36.19],
+            "Воронеж": [51.67, 39.18], "Брянск": [53.25, 34.36], "Крым": [45.34, 34.49],
+            "Ростов": [47.23, 39.70], "Самара": [53.20, 50.15], "Саратов": [51.54, 46.03],
+            "Мордовия": [54.18, 45.17], "Пермь": [58.01, 56.25], "Москва": [55.75, 37.61],
+            "Тул": [54.20, 37.61], "Калуг": [54.52, 36.27], "Орлов": [52.96, 36.06],
+            "Липецк": [52.60, 39.57], "Тамбов": [52.73, 41.44], "Ульян": [54.31, 48.40],
+            "Нижегор": [56.32, 44.00], "Чуваш": [55.51, 47.12], "Татарст": [55.79, 49.10],
+            "Краснодар": [45.03, 38.97], "Севастополь": [44.58, 33.52], "Рязан": [54.62, 39.73],
+            "Владимир": [56.12, 40.40], "Иванов": [56.99, 40.97], "Ярослав": [57.62, 39.87],
+            "Костром": [57.76, 40.92], "Твер": [56.85, 35.91], "Смолен": [54.78, 32.04],
+            "Вологд": [59.22, 39.89], "Псков": [57.81, 28.33], "Новгород": [58.52, 31.27],
+            "Ленингр": [59.93, 30.31], "Мурман": [68.96, 33.08], "Архангел": [64.54, 40.54],
+            "Карел": [61.77, 34.36], "коми": [61.66, 50.81], "Астрахан": [46.34, 48.03],
+            "Волгоград": [48.70, 44.51], "Калмык": [46.30, 44.25], "Адыге": [44.60, 40.10],
+            "Дагестан": [42.98, 47.50], "Чечн": [43.31, 45.69], "Ингуш": [43.16, 44.81],
+            "Осети": [43.02, 44.66], "Кабардин": [43.48, 43.60], "Карачаев": [44.22, 42.04],
+            "Ставропол": [45.04, 41.96], "Киров": [58.60, 49.66], "Удмурт": [56.85, 53.20],
+            "Марий": [56.63, 47.89], "Башкорт": [54.73, 55.96], "Челябин": [55.15, 61.42],
+            "Свердлов": [56.83, 60.60], "Курган": [55.44, 65.33], "Тюмен": [57.15, 65.53],
+            "Омск": [54.98, 73.36], "Томск": [56.49, 84.97], "Новосибир": [55.03, 82.92],
+            "Кемеров": [55.35, 86.08], "Алтай": [52.41, 84.18], "Хакас": [53.72, 91.44],
+            "Тыва": [51.71, 94.42], "Краснояр": [56.01, 92.86], "Иркут": [52.28, 104.28],
+            "Бурят": [51.83, 107.58], "Забайкал": [52.03, 113.50], "Якут": [62.02, 129.72],
+            "Амур": [50.27, 127.52], "Хабаров": [48.48, 135.08], "Примор": [43.11, 131.87],
+            "Сахалин": [46.95, 142.73], "Камчат": [53.02, 158.65], "Магадан": [59.56, 150.80],
+            "Чук": [64.73, 177.51], "Еврей": [48.79, 132.92], "Оренбург": [51.76, 55.09]
+        };
+
         const regionsData = {
             "type": "FeatureCollection",
             "features": [
@@ -41,9 +73,11 @@
                 { "type": "Feature", "properties": { "name": "Курск" }, "geometry": { "type": "Polygon", "coordinates": [[[34.1,52.3],[38.5,51.9],[38.2,51.0],[35.5,51.0],[34.1,52.3]]] } },
                 { "type": "Feature", "properties": { "name": "Воронеж" }, "geometry": { "type": "Polygon", "coordinates": [[[38.2,51.9],[42.1,51.3],[41.5,49.6],[38.0,49.8],[38.2,51.9]]] } },
                 { "type": "Feature", "properties": { "name": "Брянск" }, "geometry": { "type": "Polygon", "coordinates": [[[31.3,53.4],[35.3,53.2],[34.5,51.9],[32.1,52.0],[31.3,53.4]]] } },
-                { "type": "Feature", "properties": { "name": "Крым" }, "geometry": { "type": "Polygon", "coordinates": [[[32.5,45.4],[34.6,46.1],[36.6,45.3],[33.5,44.4],[32.5,45.4]]] } }
+                { "type": "Feature", "properties": { "name": "Крым" }, "geometry": { "type": "Polygon", "coordinates": [[[32.5,45.4],[34.6,46.1],[36.6,45.3],[33.5,44.4],[32.5,45.4]]] } },
+                { "type": "Feature", "properties": { "name": "Ростов" }, "geometry": { "type": "Polygon", "coordinates": [[[38.5,47.5],[40.8,49.5],[43.5,47.2],[39.5,46.2],[38.5,47.5]]] } }
             ]
         };
+
         function style(feature, activeName, activeColor) {
             let isCurrent = feature.properties.name === activeName;
             return {
@@ -54,32 +88,40 @@
                 fillOpacity: isCurrent ? 0.6 : 0.2
             };
         }
+
         async function loadData() {
             try {
                 let r = await fetch('alert.json?t=' + Date.now());
                 if (!r.ok) return;
                 let j = await r.json();
+
                 if (geojsonLayer) map.removeLayer(geojsonLayer);
                 if (currentPopup) map.closePopup(currentPopup);
+
                 let targetPlace = (j && j.active) ? j.place : "";
                 let targetColor = (j && j.active) ? j.color : "#1c202a";
+
                 geojsonLayer = L.geoJSON(regionsData, {
                     style: function(feature) { return style(feature, targetPlace, targetColor); }
                 }).addTo(map);
+
                 if (j && j.active) {
-                    regionsData.features.forEach(f => {
-                        if (f.properties.name === j.place) {
-                            let bounds = L.geoJSON(f).getBounds();
-                            let center = bounds.getCenter();
-                            let html = `<div class="popup-title">${j.place}ская область</div>
-                                        <div class="popup-status" style="color:${j.color};">${j.status}</div>`;
-                            currentPopup = L.popup({ className: 'custom-popup', closeButton: false }).setLatLng(center).setContent(html).openOn(map);
-                            map.setView(center, 6);
-                        }
-                    });
+                    let html = `<div class="popup-title">${j.place}</div>
+                                <div class="popup-status" style="color:${j.color};">${j.status}</div>`;
+                    
+                    if (centerPoints[j.place]) {
+                        let center = centerPoints[j.place];
+                        currentPopup = L.popup({ className: 'custom-popup', closeButton: false }).setLatLng(center).setContent(html).openOn(map);
+                        map.setView(center, 6);
+                    } else {
+                        // Если регион новый (например, Пермь), выводим окно по центру общей карты
+                        currentPopup = L.popup({ className: 'custom-popup', closeButton: false }).setLatLng([55.0, 45.0]).setContent(html).openOn(map);
+                        map.setView([55.0, 45.0], 5);
+                    }
                 }
             } catch(e) {}
         }
+
         setInterval(loadData, 10000);
         loadData();
     </script>
