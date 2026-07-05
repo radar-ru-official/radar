@@ -2,92 +2,114 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>MONITORING CENTER</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Радар - Мониторинг БПЛА по РФ</title>
     <style>
-        body { margin: 0; background: #050505; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; }
-        .header { background: #1a1a1a; padding: 10px 20px; display: flex; align-items: center; border-bottom: 2px solid #333; font-weight: bold; letter-spacing: 1px; }
-        .flag { margin-right: 15px; font-size: 20px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.3)); }
-        #map { height: calc(100vh - 50px); width: 100%; }
-        
-        .panel { position: absolute; top: 70px; left: 10px; z-index: 1000; width: 320px; background: rgba(0,0,0,0.85); padding: 15px; border-radius: 5px; box-shadow: 0 0 15px rgba(0,0,0,0.5); border-left: 4px solid #444; max-height: 70vh; overflow-y: auto; }
-        .card { padding: 12px; margin-bottom: 10px; border-left: 5px solid #555; background: #111; font-size: 14px; }
-
-        /* Стиль для всплывающего окна (таблички) */
-        .leaflet-popup-content-wrapper { background: #111 !important; color: #fff !important; border: 1px solid #444; border-radius: 0 !important; }
-        .leaflet-popup-tip { background: #111 !important; }
-        .popup-header { font-weight: bold; border-bottom: 1px solid #444; margin-bottom: 5px; padding-bottom: 3px; }
+        body {
+            background-color: #121212; /* Темный фон для стиля радара */
+            color: #ffffff;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #ff4444;
+            text-transform: uppercase;
+        }
+        #alerts-list {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .alert-card {
+            background-color: #2a0000; /* Темно-красный фон */
+            border-left: 5px solid #ff0000;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: left;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .alert-region {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #ff6666;
+        }
+        .alert-status {
+            font-size: 1.1em;
+            color: #dddddd;
+        }
+        .safe {
+            background-color: #003300;
+            border-left: 5px solid #00ff00;
+            padding: 20px;
+            border-radius: 5px;
+            color: #00ff00;
+            font-size: 1.2em;
+        }
     </style>
 </head>
 <body>
+    <div class="container">
+        <h1>Радар: Воздушная обстановка РФ</h1>
+        <p>Автоматическое обновление данных...</p>
+        
+        <!-- СЮДА МОЖЕШЬ ВСТАВИТЬ СВОЮ SVG КАРТУ РОССИИ ЕСЛИ ОНА ЕСТЬ -->
+        
+        <div id="alerts-list">
+            <p>Загрузка данных с серверов...</p>
+        </div>
+    </div>
 
-<div class="header">
-    <div class="flag">🇷🇺</div>
-    <div style="color: #ddd;">MONITORING CENTER — ОПЕРАТИВНАЯ СВОДКА</div>
-</div>
-
-<div class="panel">
-    <div style="font-weight:bold; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:5px;">ТЕКУЩИЕ УГРОЗЫ</div>
-    <div id="alerts">Загрузка данных...</div>
-</div>
-
-<div id="map"></div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-    const map = L.map('map', {zoomControl: false}).setView([62.0, 95.0], 3);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-
-    const regions = {
-        "Ростовская": [47.23, 39.70], "Астраханская": [46.35, 48.04], "Волгоградская": [48.71, 44.52],
-        "Запорожская": [46.85, 35.37], "Херсонская": [46.17, 34.81], "Белгородская": [50.60, 36.59],
-        "Брянская": [53.25, 34.37], "Владимирская": [56.13, 40.40], "Воронежская": [51.67, 39.18],
-        "Ивановская": [57.00, 40.97], "Калужская": [54.53, 36.27], "Костромская": [57.77, 40.93],
-        "Курская": [51.73, 36.19], "Липецкая": [52.60, 39.57], "Московская": [55.75, 37.62],
-        "Орловская": [52.97, 36.06], "Рязанская": [54.63, 39.69], "Смоленская": [54.78, 32.05],
-        "Тамбовская": [52.73, 41.44], "Тверская": [56.86, 35.91], "Тульская": [54.19, 37.62],
-        "Ярославская": [57.63, 39.87], "Архангельская": [64.54, 40.54], "Вологодская": [59.22, 39.88],
-        "Калининградская": [54.71, 20.45], "Ленинградская": [59.94, 30.30], "Мурманская": [68.95, 33.08],
-        "Новгородская": [58.52, 31.28], "Псковская": [57.81, 28.35], "Кировская": [58.60, 49.66],
-        "Нижегородская": [56.33, 44.00], "Оренбургская": [51.77, 55.10], "Пензенская": [53.20, 45.00],
-        "Самарская": [53.24, 50.16], "Саратовская": [51.54, 46.03], "Ульяновская": [54.33, 48.39],
-        "Курганская": [55.45, 65.34], "Свердловская": [56.84, 60.61], "Тюменская": [57.15, 65.54],
-        "Челябинская": [55.16, 61.43], "Иркутская": [52.29, 104.28], "Кемеровская": [55.35, 86.08],
-        "Новосибирская": [55.01, 82.93], "Омская": [54.99, 73.37], "Томская": [56.49, 84.95],
-        "Амурская": [50.27, 127.53], "Магаданская": [59.57, 150.81], "Сахалинская": [46.96, 142.73]
-    };
-
-    let markers = [];
-    function update() {
-        fetch('alert.json?t=' + Date.now())
-        .then(r => r.json())
-        .then(data => {
-            markers.forEach(m => map.removeLayer(m));
-            markers = [];
-            let html = '';
-            for (let reg in data) {
-                let status = data[reg];
-                let s = status.toLowerCase();
-                let color = '#f1c40f'; // Тишина/Отбой - Желтый
+    <script>
+        async function loadAlerts() {
+            try {
+                // Загружаем alert.json. ?t= добавляем чтобы браузер не кэшировал старые данные
+                const response = await fetch('alert.json?t=' + new Date().getTime());
+                const data = await response.json();
                 
-                if (s.includes('тревога') || s.includes('пво') || s.includes('фиксация') || s.includes('угроза атаки')) color = '#ff0000';
-                else if (s.includes('ракетная')) color = '#8b0000';
-                else if (s.includes('уаб') || s.includes('авиационная')) color = '#8b4513';
+                const list = document.getElementById('alerts-list');
+                list.innerHTML = ''; // Очищаем экран перед загрузкой новых данных
 
-                let regionKey = Object.keys(regions).find(key => reg.includes(key));
-                if (regionKey) {
-                    let m = L.circleMarker(regions[regionKey], {color: color, radius: 10, fillOpacity: 0.8}).addTo(map);
-                    // Оформление попапа
-                    m.bindPopup(`<div class="popup-header">${reg}</div><div>Статус: ${status}</div>`);
-                    markers.push(m);
+                const regions = Object.keys(data);
+
+                // Если alert.json пустой (нет угроз)
+                if (regions.length === 0) {
+                    list.innerHTML = '<div class="safe">✅ В данный момент угроз не зафиксировано. Небо чистое.</div>';
+                    return;
                 }
-                html += `<div class="card" style="border-color:${color}"><b>${reg}</b><br>${status}</div>`;
+
+                // Если угрозы есть, выводим их
+                for (let region in data) {
+                    const status = data[region];
+                    
+                    const card = document.createElement('div');
+                    card.className = 'alert-card';
+                    card.innerHTML = `
+                        <div class="alert-region">🚨 ${region}</div>
+                        <div class="alert-status">${status}</div>
+                    `;
+                    list.appendChild(card);
+                    
+                    // ЕСЛИ У ТЕБЯ ЕСТЬ SVG КАРТА, СКРИПТ МОЖЕТ ЕЕ КРАСИТЬ ТУТ.
+                    // Например, если у региона на карте id совпадает с названием:
+                    // try { document.getElementById(region).style.fill = 'red'; } catch(e) {}
+                }
+            } catch (error) {
+                console.error("Ошибка загрузки alert.json", error);
             }
-            document.getElementById('alerts').innerHTML = html || 'Все зоны под контролем.';
-        });
-    }
-    setInterval(update, 5000);
-    update();
-</script>
+        }
+
+        // Запускаем сразу при входе
+        loadAlerts();
+        // Обновляем каждые 10 секунд автоматически
+        setInterval(loadAlerts, 10000);
+    </script>
 </body>
 </html>
