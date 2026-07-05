@@ -2,80 +2,91 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>LIVE MONITORING CENTER</title>
+    <title>MONITORING CENTER</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; background: #050505; color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
-        #map { height: 100vh; width: 100%; filter: contrast(1.1) brightness(0.9); }
+        body { margin: 0; background: #050505; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; }
+        .header { background: #1a1a1a; padding: 10px 20px; display: flex; align-items: center; border-bottom: 2px solid #333; font-weight: bold; letter-spacing: 1px; }
+        .flag { margin-right: 15px; font-size: 20px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.3)); }
+        #map { height: calc(100vh - 50px); width: 100%; }
         
-        .panel { position: absolute; top: 20px; left: 20px; z-index: 1000; width: 340px; height: 90vh; background: rgba(10, 10, 12, 0.95); border-left: 4px solid #0056b3; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,1); }
-        .header { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .time { font-size: 11px; color: #00ff00; font-family: monospace; }
-        
-        #alerts-container { overflow-y: auto; flex-grow: 1; }
-        .card { background: #111; padding: 12px; margin-bottom: 10px; border-left: 4px solid #444; }
-        
-        /* Цвета угрозы */
-        .uab { border-color: #ff0000; background: #2a0505; }
-        .rocket { border-color: #b30000; background: #1a0505; }
-        .pvo { border-color: #0088cc; background: #051a2a; }
-        .bpla { border-color: #f1c40f; background: #2a2505; }
-        .alarm { border-color: #e67e22; background: #2a1505; }
+        .panel { position: absolute; top: 70px; left: 10px; z-index: 1000; width: 320px; background: rgba(0,0,0,0.85); padding: 15px; border-radius: 5px; box-shadow: 0 0 15px rgba(0,0,0,0.5); border-left: 4px solid #444; max-height: 70vh; overflow-y: auto; }
+        .card { padding: 12px; margin-bottom: 10px; border-left: 5px solid #555; background: #111; font-size: 14px; }
+
+        /* Стиль для всплывающего окна (таблички) */
+        .leaflet-popup-content-wrapper { background: #111 !important; color: #fff !important; border: 1px solid #444; border-radius: 0 !important; }
+        .leaflet-popup-tip { background: #111 !important; }
+        .popup-header { font-weight: bold; border-bottom: 1px solid #444; margin-bottom: 5px; padding-bottom: 3px; }
     </style>
 </head>
 <body>
 
+<div class="header">
+    <div class="flag">🇷🇺</div>
+    <div style="color: #ddd;">MONITORING CENTER — ОПЕРАТИВНАЯ СВОДКА</div>
+</div>
+
 <div class="panel">
-    <div class="header">
-        <div style="font-weight:bold;">СИТУАЦИОННЫЙ ЦЕНТР</div>
-        <div class="time" id="update-time">ОБНОВЛЕНИЕ: --:--:--</div>
-    </div>
-    <div id="alerts-container">Загрузка...</div>
+    <div style="font-weight:bold; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:5px;">ТЕКУЩИЕ УГРОЗЫ</div>
+    <div id="alerts">Загрузка данных...</div>
 </div>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map', {zoomControl: false}).setView([54.0, 37.0], 6);
+    const map = L.map('map', {zoomControl: false}).setView([62.0, 95.0], 3);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-    // СЮДА ДОБАВЛЯЙ КООРДИНАТЫ РЕГИОНОВ (без них карта будет пустой)
-    const regions = { "type": "FeatureCollection", "features": [
-        { "type": "Feature", "properties": { "name": "Московская" }, "geometry": { "type": "Polygon", "coordinates": [[[35.0, 54.5], [35.0, 56.5], [39.0, 56.5], [39.0, 54.5], [35.0, 54.5]]] } },
-        { "type": "Feature", "properties": { "name": "Тульская" }, "geometry": { "type": "Polygon", "coordinates": [[[36.0, 53.0], [36.0, 54.5], [38.5, 54.5], [38.5, 53.0], [36.0, 53.0]]] } }
-    ]};
+    const regions = {
+        "Ростовская": [47.23, 39.70], "Астраханская": [46.35, 48.04], "Волгоградская": [48.71, 44.52],
+        "Запорожская": [46.85, 35.37], "Херсонская": [46.17, 34.81], "Белгородская": [50.60, 36.59],
+        "Брянская": [53.25, 34.37], "Владимирская": [56.13, 40.40], "Воронежская": [51.67, 39.18],
+        "Ивановская": [57.00, 40.97], "Калужская": [54.53, 36.27], "Костромская": [57.77, 40.93],
+        "Курская": [51.73, 36.19], "Липецкая": [52.60, 39.57], "Московская": [55.75, 37.62],
+        "Орловская": [52.97, 36.06], "Рязанская": [54.63, 39.69], "Смоленская": [54.78, 32.05],
+        "Тамбовская": [52.73, 41.44], "Тверская": [56.86, 35.91], "Тульская": [54.19, 37.62],
+        "Ярославская": [57.63, 39.87], "Архангельская": [64.54, 40.54], "Вологодская": [59.22, 39.88],
+        "Калининградская": [54.71, 20.45], "Ленинградская": [59.94, 30.30], "Мурманская": [68.95, 33.08],
+        "Новгородская": [58.52, 31.28], "Псковская": [57.81, 28.35], "Кировская": [58.60, 49.66],
+        "Нижегородская": [56.33, 44.00], "Оренбургская": [51.77, 55.10], "Пензенская": [53.20, 45.00],
+        "Самарская": [53.24, 50.16], "Саратовская": [51.54, 46.03], "Ульяновская": [54.33, 48.39],
+        "Курганская": [55.45, 65.34], "Свердловская": [56.84, 60.61], "Тюменская": [57.15, 65.54],
+        "Челябинская": [55.16, 61.43], "Иркутская": [52.29, 104.28], "Кемеровская": [55.35, 86.08],
+        "Новосибирская": [55.01, 82.93], "Омская": [54.99, 73.37], "Томская": [56.49, 84.95],
+        "Амурская": [50.27, 127.53], "Магаданская": [59.57, 150.81], "Сахалинская": [46.96, 142.73]
+    };
 
-    let geoLayer = L.geoJSON(regions, {
-        style: { color: "#333", weight: 1, fillColor: "#222", fillOpacity: 0.5 },
-        onEachFeature: (f, l) => l.bindPopup(f.properties.name)
-    }).addTo(map);
-
+    let markers = [];
     function update() {
-        fetch('alert.json?t=' + Date.now()).then(r => r.json()).then(data => {
-            document.getElementById('update-time').innerText = "ОБНОВЛЕНО: " + new Date().toLocaleTimeString();
+        fetch('alert.json?t=' + Date.now())
+        .then(r => r.json())
+        .then(data => {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
             let html = '';
-
-            geoLayer.eachLayer(layer => {
-                let name = layer.feature.properties.name;
-                let status = data[name] ? (typeof data[name] === 'object' ? data[name].status : data[name]) : null;
+            for (let reg in data) {
+                let status = data[reg];
+                let s = status.toLowerCase();
+                let color = '#f1c40f'; // Тишина/Отбой - Желтый
                 
-                if (status) {
-                    let s = status.toLowerCase();
-                    let cls = s.includes('уаб') ? 'uab' : s.includes('ракетная') ? 'rocket' : 
-                              s.includes('фиксация') ? 'pvo' : s.includes('бпла') ? 'bpla' : 'alarm';
-                    
-                    layer.setStyle({ fillColor: cls === 'uab' ? '#ff0000' : cls === 'pvo' ? '#0088cc' : cls === 'bpla' ? '#f1c40f' : '#e67e22', fillOpacity: 0.7 });
-                    html += `<div class="card ${cls}"><span style="font-weight:bold">${name}</span><br><span style="font-size:12px">${status}</span></div>`;
-                } else {
-                    layer.setStyle({ fillColor: "#222", fillOpacity: 0.5 });
+                if (s.includes('тревога') || s.includes('пво') || s.includes('фиксация') || s.includes('угроза атаки')) color = '#ff0000';
+                else if (s.includes('ракетная')) color = '#8b0000';
+                else if (s.includes('уаб') || s.includes('авиационная')) color = '#8b4513';
+
+                let regionKey = Object.keys(regions).find(key => reg.includes(key));
+                if (regionKey) {
+                    let m = L.circleMarker(regions[regionKey], {color: color, radius: 10, fillOpacity: 0.8}).addTo(map);
+                    // Оформление попапа
+                    m.bindPopup(`<div class="popup-header">${reg}</div><div>Статус: ${status}</div>`);
+                    markers.push(m);
                 }
-            });
-            document.getElementById('alerts-container').innerHTML = html || '<div class="card">Все зоны под контролем.</div>';
+                html += `<div class="card" style="border-color:${color}"><b>${reg}</b><br>${status}</div>`;
+            }
+            document.getElementById('alerts').innerHTML = html || 'Все зоны под контролем.';
         });
     }
-
-    setInterval(update, 3000);
+    setInterval(update, 5000);
     update();
 </script>
 </body>
