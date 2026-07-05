@@ -2,24 +2,31 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Карта Радар</title>
+    <title>Radar Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; }
         #map { height: 100vh; width: 100%; }
+        #panel {
+            position: absolute; top: 10px; left: 10px; z-index: 1000;
+            background: #000; color: #fff; padding: 15px; border-radius: 5px;
+            width: 250px; box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        .item { margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 5px; }
     </style>
 </head>
 <body>
+
+<div id="panel">
+    <div id="alerts">Нет угроз</div>
+</div>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
     var map = L.map('map').setView([55.0, 45.0], 5);
-
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Спутник'
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     var coords = {
         "Москва": [55.7558, 37.6173], "Санкт-Петербург": [59.9343, 30.3351],
@@ -44,24 +51,27 @@
     };
 
     var markers = {};
-    function loadAlerts() {
+    var alertsDiv = document.getElementById('alerts');
+
+    function update() {
         fetch('alert.json?t=' + new Date().getTime())
-            .then(res => res.json())
-            .then(data => {
+            .then(r => r.json())
+            .then(d => {
                 for (let m in markers) { map.removeLayer(markers[m]); }
-                for (let place in data) {
-                    let info = data[place];
-                    let latLng = coords[place];
-                    if (latLng) {
-                        markers[place] = L.marker(latLng).addTo(map)
-                            .bindPopup(`<b>${place}</b><br>${info.status}`);
-                    }
+                alertsDiv.innerHTML = '';
+                
+                let active = false;
+                for (let p in d) {
+                    active = true;
+                    alertsDiv.innerHTML += `<div class="item"><b>${p}</b><br>${d[p].status}</div>`;
+                    if (coords[p]) markers[p] = L.marker(coords[p]).addTo(map).bindPopup(`<b>${p}</b><br>${d[p].status}`);
                 }
+                if (!active) alertsDiv.innerHTML = 'Все чисто.';
             });
     }
 
-    setInterval(loadAlerts, 5000);
-    loadAlerts();
+    setInterval(update, 5000);
+    update();
 </script>
 </body>
 </html>
