@@ -93,7 +93,6 @@
             background: #4682b4;
             border-color: #fff;
         }
-        /* Кастомный скроллбар для панели */
         #panel::-webkit-scrollbar { width: 6px; }
         #panel::-webkit-scrollbar-track { background: transparent; }
         #panel::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
@@ -152,7 +151,8 @@
         let currentAlerts = {};
         let mapDataLoaded = false;
 
-        d3.json("https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/russia.geojson")
+        // Загрузка локального файла с картой
+        d3.json("russia.geojson")
             .then(data => {
                 g.selectAll("path")
                     .data(data.features)
@@ -160,14 +160,15 @@
                     .append("path")
                     .attr("class", "region")
                     .attr("d", path)
-                    .attr("data-name", d => d.properties.name);
+                    // Умный парсинг имени: проверяем и name:ru (для OSM), и name
+                    .attr("data-name", d => d.properties["name:ru"] || d.properties.name);
 
                 mapDataLoaded = true;
                 fetchAlertData();
                 setInterval(fetchAlertData, 10000);
             })
             .catch(err => {
-                document.getElementById("panel-status").innerHTML = `<div style="color:#ff0000;">Ошибка загрузки геоданных.</div>`;
+                document.getElementById("panel-status").innerHTML = `<div style="color:#ff0000;">Ошибка загрузки геоданных. Убедитесь, что файл russia.geojson лежит в репозитории.</div>`;
                 console.error(err);
             });
 
@@ -175,10 +176,10 @@
             if (!mapDataLoaded) return;
             
             g.selectAll(".region").style("fill", function(d) {
-                const regionName = d.properties.name.toLowerCase();
-                let regionColor = "#2a2d37"; // Дефолтный цвет
+                const rawName = d.properties["name:ru"] || d.properties.name || "";
+                const regionName = rawName.toLowerCase();
+                let regionColor = "#2a2d37";
                 
-                // Перебираем все активные угрозы
                 for (const [place, info] of Object.entries(currentAlerts)) {
                     if (regionName.includes(place.toLowerCase())) {
                         regionColor = info.color;
