@@ -1,1 +1,1 @@
-{"active": false, "place": "Ростов", "status": "🟢 Отбой угроз. Все спокойно.", "color": "#161b22", "type": "clear"}
+{"active": true, "place": "Курск", "status": "🔴 Зафиксирован непосредственный пролет БПЛА!", "color": "#ff0000", "type": "fly_bpla"}
