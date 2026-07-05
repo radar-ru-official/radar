@@ -3,65 +3,92 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мониторинговый Ситуационный Центр Радар</title>
-    <!-- Подключаем стили профессиональных интерактивных карт Leaflet -->
-    <link rel="stylesheet" href="https://unpkg.com" />
+    <title>Ситуационный Центр Радар РФ</title>
+    <script src="https://cloudflare.com"></script>
     <style>
         body, html { margin:0; padding:0; width:100%; height:100%; background:#0b0c10; font-family:sans-serif; overflow:hidden; color:#fff; }
-        #map { width:100%; height:100%; background:#0b0c10; }
-        
-        /* Кастомный стиль всплывающего окна в стиле киберпанк/военного интерфейса */
-        .custom-popup .leaflet-popup-content-wrapper { background:#11141a; color:#fff; border-radius:8px; padding:12px 18px; border:1px solid #30363d; box-shadow:0 12px 35px rgba(0,0,0,0.7); }
-        .custom-popup .leaflet-popup-tip { background:#11141a; border:1px solid #30363d; }
-        .popup-title { font-weight:bold; font-size:14px; margin-bottom:6px; color:#58a6ff; text-transform:uppercase; letter-spacing:1px; }
-        .popup-status { font-size:15px; font-weight:bold; margin-bottom:4px; }
-        
-        /* Легенда системы */
-        .legend { position:absolute; bottom:25px; left:25px; background:rgba(17,20,26,0.95); padding:15px 20px; border-radius:8px; font-size:12px; border:1px solid #30363d; z-index:1000; box-shadow:0 10px 25px rgba(0,0,0,0.5); }
-        .legend-title { font-weight:bold; font-size:11px; color:#8b949e; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:10px; border-bottom:1px solid #21262d; padding-bottom:5px; }
+        .wrapper { width:100%; height:100%; position:relative; background:#0b0c10; cursor:grab; }
+        .wrapper:active { cursor:grabbing; }
+        #map-container { width:100%; height:100%; }
+        .region { fill:#1c202a; stroke:#2f3644; stroke-width:0.8; transition: fill 0.3s ease; }
+        .region:hover { fill:#2d3548; stroke:#58a6ff; stroke-width:1.5; }
+        .info-panel { position:absolute; top:25px; left:50%; transform:translateX(-50%); background:#161920; border:1px solid #2d3440; padding:15px 35px; border-radius:8px; text-align:center; min-width:320px; box-shadow:0 10px 30px rgba(0,0,0,0.6); z-index:2000; pointer-events:none; }
+        .system-lbl { font-size:11px; letter-spacing:2px; color:#58a6ff; font-weight:bold; margin-bottom:6px; text-transform:uppercase; }
+        #region-name { font-size:24px; font-weight:bold; margin-bottom:5px; color:#f0f6fc; }
+        #status-text { font-size:15px; font-weight:bold; padding:6px 12px; border-radius:4px; background:#0d1117; display:inline-block; border:1px solid #21262d; }
+        .legend { position:absolute; bottom:25px; left:25px; background:rgba(22,25,32,0.95); padding:15px; border-radius:8px; font-size:12px; border:1px solid #2d3440; z-index:1000; pointer-events:none; }
         .legend-item { display:flex; align-items:center; margin-bottom:8px; }
         .legend-color { width:14px; height:14px; border-radius:3px; margin-right:10px; border:1px solid rgba(255,255,255,0.1); }
     </style>
 </head>
 <body>
 
-    <div id="map"></div>
+    <div class="wrapper" id="map-wrapper">
+        <div class="info-panel">
+            <div class="system-lbl">🚨 СИСТЕМА МОНИТОРИНГА РАДАР</div>
+            <div id="region-name">РФ (Все регионы)</div>
+            <div id="status-text" style="color:#8b949e;">🟢 Обстановка спокойная. Сигналов нет.</div>
+        </div>
 
-    <div class="legend">
-        <div class="legend-title">Мониторинг РФ</div>
-        <div class="legend-item"><div class="legend-color" style="background:#21262d;"></div> Безопасно / Норма</div>
-        <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Опасность БПЛА</div>
-        <div class="legend-item"><div class="legend-color" style="background:#ff0000;"></div> Пролет БПЛА</div>
-        <div class="legend-item"><div class="legend-color" style="background:#ff8c00;"></div> Пожар / Взрыв</div>
-        <div class="legend-item"><div class="legend-color" style="background:#4682b4;"></div> Сбитие БПЛА</div>
-        <div class="legend-item"><div class="legend-color" style="background:#8b0000;"></div> Ракетная угроза</div>
+        <div id="map-container"></div>
+
+        <div class="legend">
+            <div class="legend-item"><div class="legend-color" style="background:#1c202a;"></div> Норма / Ожидание</div>
+            <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Беспилотная опасность</div>
+            <div class="legend-item"><div class="legend-color" style="background:#ff0000;"></div> Пролет БПЛА</div>
+            <div class="legend-item"><div class="legend-color" style="background:#ff8c00;"></div> Пожар / Взрыв</div>
+            <div class="legend-item"><div class="legend-color" style="background:#4682b4;"></div> Сбитие БПЛА</div>
+            <div class="legend-item"><div class="legend-color" style="background:#8b0000;"></div> Ракетная угроза</div>
+        </div>
     </div>
 
-    <!-- Загружаем библиотеки карты и геокодера -->
-    <script src="https://unpkg.com"></script>
     <script>
-        // Создаем глобальную интерактивную карту мира с фокусом на Россию
-        const map = L.map('map', { zoomControl: true }).setView([55.75, 37.62], 5);
-        
-        // Загружаем стильную, неубиваемую темную векторную подложку со всеми странами и городами мира
-        L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', {
-            maxZoom: 18,
-            attribution: ''
-        }).addTo(map);
+        const width = window.innerWidth;
+        const height = window.innerHeight;
 
-        let activeMarker = null;
+        const projection = d3.geoMercator()
+            .center([95, 62]) 
+            .scale(width * 0.45)
+            .translate([width / 2, height / 2]);
 
-        // Поиск координат любого города РФ через открытый глобальный геокодер
-        async function getCoordinates(cityName) {
-            try {
-                let r = await fetch('https://openstreetmap.org' + encodeURIComponent(cityName + ', Россия'));
-                let d = await r.json();
-                if (d && d.length > 0) {
-                    return [parseFloat(d[0].lat), parseFloat(d[0].lon)];
-                }
-            } catch(e) { console.log(e); }
-            return null;
-        }
+        const pathGenerator = d3.geoPath().projection(projection);
+
+        const svg = d3.select("#map-container")
+            .append("svg")
+            .attr("width", "100%")
+            .attr("height", "100%");
+
+        const g = svg.append("g");
+
+        const zoom = d3.zoom()
+            .scaleExtent([0.5, 8])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+
+        d3.select("#map-wrapper").call(zoom);
+
+        d3.json("https://githubusercontent.com").then(data => {
+            g.selectAll("path")
+                .data(data.features)
+                .enter()
+                .append("path")
+                .attr("d", pathGenerator)
+                .attr("class", "region")
+                .attr("id", d => {
+                    let name = d.properties.name || "";
+                    return name.replace(" область", "").replace(" край", "").replace(" Республика", "").trim();
+                })
+                .on("click", function(event, d) {
+                    let regionFullName = d.properties.name || "Неизвестный регион";
+                    document.getElementById('region-name').innerText = regionFullName;
+                    document.getElementById('status-text').innerText = "ℹ️ Регион выбран вручную";
+                    document.getElementById('status-text').style.color = "#58a6ff";
+                    document.getElementById('status-text').style.borderColor = "#58a6ff";
+                });
+
+            loadData();
+        });
 
         async function loadData() {
             try {
@@ -69,39 +96,28 @@
                 if (!r.ok) return;
                 let j = await r.json();
 
+                g.selectAll(".region").style("fill", "#1c202a");
+
                 if (j && j.active) {
-                    let coords = await getCoordinates(j.place);
-                    if (coords) {
-                        if (activeMarker) map.removeLayer(activeMarker);
+                    document.getElementById('region-name').innerText = j.place + "ская область";
+                    document.getElementById('status-text').innerText = j.status;
+                    document.getElementById('status-text').style.color = j.color;
+                    document.getElementById('status-text').style.borderColor = j.color;
 
-                        let popupHtml = `<div class="popup-title">🚨 ${j.place}</div>
-                                         <div class="popup-status" style="color:${j.color};">${j.status}</div>`;
-
-                        // Создаем красивый светящийся маркер-круг на карте вместо обычной стрелки
-                        activeMarker = L.circleMarker(coords, {
-                            radius: 12,
-                            fillColor: j.color,
-                            color: '#ffffff',
-                            weight: 2,
-                            opacity: 1,
-                            fillOpacity: 0.8
-                        }).addTo(map).bindPopup(popupHtml, { className: 'custom-popup', closeButton: false }).openPopup();
-
-                        map.setView(coords, 7); // Автоматически и плавно приближаем карту к городу опасности
+                    let targetRegion = d3.select("#" + j.place);
+                    if (!targetRegion.empty()) {
+                        targetRegion.style("fill", j.color);
                     }
                 } else {
-                    // Если угроз нет, убираем маркер
-                    if (activeMarker) {
-                        map.removeLayer(activeMarker);
-                        activeMarker = null;
-                    }
+                    document.getElementById('region-name').innerText = "РФ (Все регионы)";
+                    document.getElementById('status-text').innerText = "🟢 Обстановка спокойная. Сигналов нет.";
+                    document.getElementById('status-text').style.color = "#8b949e";
+                    document.getElementById('status-text').style.borderColor = "#21262d";
                 }
             } catch(e) {}
         }
 
-        // Обновляем данные каждые 12 секунд
-        setInterval(loadData, 12000);
-        loadData();
+        setInterval(loadData, 10000);
     </script>
 </body>
 </html>
