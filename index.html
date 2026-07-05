@@ -18,67 +18,64 @@
         .threat-red { fill: var(--red) !important; }
         .threat-dark-red { fill: var(--dark-red) !important; }
 
-        /* Тултип (popup) */
         #tooltip { position: absolute; background: rgba(20, 20, 25, 0.95); padding: 10px; border-radius: 4px; border: 1px solid #444; pointer-events: none; display: none; font-size: 0.9rem; z-index: 1000; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
 
-        /* Легенда (как на image_0f4ac3.jpg) */
         .legend { position: fixed; bottom: 30px; left: 30px; background: rgba(20, 20, 25, 0.9); padding: 15px; border-radius: 6px; border: 1px solid #333; }
         .legend-item { display: flex; align-items: center; margin: 8px 0; font-size: 0.85rem; }
         .box { width: 14px; height: 14px; margin-right: 12px; border-radius: 2px; }
-
-        /* Время обновления */
         #timestamp { position: fixed; bottom: 30px; right: 30px; font-size: 0.8rem; color: #777; }
     </style>
 </head>
 <body>
 
     <div id="tooltip"></div>
-
-    <div id="map-container">
-        <!-- Сюда подгрузится map.svg -->
-    </div>
+    <div id="map-container">Загрузка карты...</div>
 
     <div class="legend">
         <div class="legend-item"><div class="box" style="background:var(--safe)"></div> Безопасно</div>
         <div class="legend-item"><div class="box" style="background:var(--yellow)"></div> Опасность БПЛА</div>
-        <div class="legend-item"><div class="box" style="background:var(--red)"></div> Тревога БПЛА / ПВО</div>
+        <div class="legend-item"><div class="box" style="background:var(--red)"></div> Тревога</div>
         <div class="legend-item"><div class="box" style="background:var(--dark-red)"></div> Ракетная угроза</div>
     </div>
 
-    <div id="timestamp">Последнее обновление: --:--:--</div>
+    <div id="timestamp">Обновление...</div>
 
     <script>
         const tooltip = document.getElementById('tooltip');
         
-        // Маппинг всех регионов
+        // Твой полный маппинг регионов
         const regionMapping = {
-           // Словарь-переводчик: Русское имя (JSON) -> ID из SVG
-const regionMapping = {
-    "Белгородская область": "RU-BEL", "Курская область": "RU-KRS",
-    "Брянская область": "RU-BRY", "Тульская область": "RU-TUL",
-    "Орловская область": "RU-ORL", "Липецкая область": "RU-LIP",
-    "Воронежская область": "RU-VOR", "Московская область": "RU-MOW",
-    "г. Москва": "RU-MOW", "Калужская область": "RU-KLU",
-    "Рязанская область": "RU-RYA", "Тамбовская область": "RU-TAM",
-    "Краснодарский край": "RU-KDA", "Ростовская область": "RU-ROS",
-    "Республика Крым": "RU-CR", "Севастополь": "RU-SEV",
-    "Смоленская область": "RU-SMO", "Тверская область": "RU-TVE",
-    "Ярославская область": "RU-YAR", "Владимирская область": "RU-VLA",
-    "Волгоградская область": "RU-VGG", "Нижегородская область": "RU-RUNIZ",
-    "Самарская область": "RU-RUSAM", "Саратовская область": "RU-RUSAR",
-    "Пензенская область": "RU-RUPNZ", "Республика Татарстан": "RU-RUTA",
-    "Республика Башкортостан": "RU-RUBA", "Пермский край": "RU-RUPER",
-    "Свердловская область": "RU-RUSVE", "Челябинская область": "RU-RUCHE",
-    "Курганская область": "RU-RUKGN", "Оренбургская область": "RU-RUORE",
-    "г. Санкт-Петербург": "RU-RUSPE", "Ленинградская область": "RU-RULEN",
-    "Мурманская область": "RU-RUMUR", "Архангельская область": "RU-RUARK",
-    "Республика Коми": "RU-RUKO", "Карелия": "RU-RUKR"
-};
+            "Адыгея": "RUAD", "Горный Алтай": "RUAL", "Алтай": "RUALT", "Амурская область": "RUAMU", 
+            "Архангельская область": "RUARK", "Астраханская область": "RUAST", "Башкортостан": "RUBA", 
+            "Белгородская область": "RUBEL", "Брянская область": "RUBRY", "Бурятия": "RUBU", 
+            "Чечня": "RUCE", "Челябинская область": "RUCHE", "Чукотка": "RUCHU", "Чувашия": "RUCU", 
+            "Дагестан": "RUDA", "Ингушетия": "RUIN", "Иркутская область": "RUIRK", "Ивановская область": "RUIVA", 
+            "Камчатка": "RUKAM", "Кабардино-Балкария": "RUKB", "Карачаево-Черкесия": "RUKC", 
+            "Краснодарский край": "RUKDA", "Кемеровская область": "RUKEM", "Калининградская область": "RUKGD", 
+            "Курганская область": "RUKGN", "Хабаровский край": "RUKHA", "Ханты-Мансийск": "RUKHM", 
+            "Кировская область": "RUKIR", "Хакасия": "RUKK", "Калмыкия": "RUKL", "Калужская область": "RUKLU", 
+            "Коми": "RUKO", "Костромская область": "RUKOS", "Карелия": "RUKR", "Курская область": "RUKRS", 
+            "Красноярский край": "RUKYA", "Ленинградская область": "RULEN", "Липецкая область": "RULIP", 
+            "Магаданская область": "RUMAG", "Марий-Эл": "RUME", "Мордовия": "RUMO", "Москва": "RUMOS", 
+            "Московская область": "RUMOW", "Мурманская область": "RUMUR", "Ненецкий АО": "RUNEN", 
+            "Новгородская область": "RUNGR", "Нижегородская область": "RUNIZ", "Новосибирская область": "RUNVS", 
+            "Омская область": "RUOMS", "Оренбургская область": "RUORE", "Орловская область": "RUORL", 
+            "Пермский край": "RUPER", "Пензенская область": "RUPNZ", "Приморский край": "RUPRI", 
+            "Псковская область": "RUPSK", "Ростовская область": "RUROS", "Рязанская область": "RURYA", 
+            "Якутия": "RUSA", "Сахалинская область": "RUSAK", "Самарская область": "RUSAM", 
+            "Саратовская область": "RUSAR", "Северная Осетия": "RUSE", "Смоленская область": "RUSMO", 
+            "Санкт-Петербург": "RUSPE", "Ставропольский край": "RUSTA", "Свердловская область": "RUSVE", 
+            "Татарстан": "RUTA", "Тамбовская область": "RUTAM", "Томская область": "RUTOM", 
+            "Тульская область": "RUTUL", "Тверская область": "RUTVE", "Тува": "RUTY", 
+            "Тюменская область": "RUTYU", "Удмуртия": "RUUD", "Ульяновская область": "RUULY", 
+            "Волгоградская область": "RUVGG", "Владимирская область": "RUVLA", "Вологодская область": "RUVLG", 
+            "Воронежская область": "RUVOR", "Ямало-Ненецкий АО": "RUYAN", "Ярославская область": "RUYAR", 
+            "Еврейская АО": "RUYEV", "Забайкальский край": "RUZAB"
         };
 
         const threatMap = {
-            'опасность по бпла': 'threat-yellow',
-            'тревога по бпла': 'threat-red', 'работа пво': 'threat-red', 'фиксация бпла': 'threat-red', 'угроза атаки': 'threat-red',
+            'опасность по бпла': 'threat-yellow', 'тревога по бпла': 'threat-red', 
+            'работа пво': 'threat-red', 'фиксация бпла': 'threat-red', 'угроза атаки': 'threat-red',
             'ракетная опасность': 'threat-dark-red'
         };
 
@@ -86,20 +83,14 @@ const regionMapping = {
             try {
                 const resp = await fetch('map.svg');
                 document.getElementById('map-container').innerHTML = await resp.text();
-                
-                // События для тултипа
                 document.querySelectorAll('path').forEach(path => {
                     path.onmousemove = (e) => { tooltip.style.left = (e.pageX + 15) + 'px'; tooltip.style.top = (e.pageY + 15) + 'px'; };
-                    path.onmouseenter = (e) => { 
-                        tooltip.style.display = 'block'; 
-                        tooltip.innerHTML = `<strong>${e.target.id}</strong>`; 
-                    };
+                    path.onmouseenter = (e) => { tooltip.style.display = 'block'; tooltip.innerHTML = `<strong>${e.target.id}</strong>`; };
                     path.onmouseleave = () => tooltip.style.display = 'none';
                 });
-                
                 update();
                 setInterval(update, 5000);
-            } catch(e) { console.error("Карта не загрузилась"); }
+            } catch(e) { document.getElementById('map-container').innerText = "Ошибка загрузки карты"; }
         }
 
         async function update() {
@@ -107,11 +98,7 @@ const regionMapping = {
                 const res = await fetch('alert.json?t=' + Date.now());
                 const data = await res.json();
                 document.getElementById('timestamp').innerText = "Последнее обновление: " + new Date().toLocaleTimeString();
-                
-                // Сброс цветов
                 document.querySelectorAll('path').forEach(p => p.className.baseVal = '');
-                
-                // Окраска
                 for (let reg in data) {
                     const svgId = regionMapping[reg];
                     if (svgId) {
