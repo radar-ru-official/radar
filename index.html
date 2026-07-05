@@ -19,7 +19,8 @@
     <div id="map"></div>
     <div class="legend">
         <div class="legend-item"><div class="legend-color" style="background:#22252c;"></div> Безопасно / Отбой</div>
-        <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Пролет БПЛА</div>
+        <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Беспилотная опасность</div>
+        <div class="legend-item"><div class="legend-color" style="background:#ff0000;"></div> Пролет БПЛА</div>
         <div class="legend-item"><div class="legend-color" style="background:#ff8c00;"></div> Пожар / Взрыв</div>
         <div class="legend-item"><div class="legend-color" style="background:#4682b4;"></div> Сбитие БПЛА</div>
         <div class="legend-item"><div class="legend-color" style="background:#8b0000;"></div> Ракетная угроза</div>
@@ -53,11 +54,13 @@
                     let html = `<div class="popup-title">${name}</div>
                                 <div class="popup-status" style="color:${clr};">${txt}</div>`;
 
-                    // Подбираем красивую иконку Яндекса под тип события
+                    // Подбираем иконку Яндекса под тип события
                     let iconPreset = 'islands#redIcon';
-                    if (type === 'fire') iconPreset = 'islands#orangeFlameIcon'; // Иконка огня для пожара
-                    if (type === 'down') iconPreset = 'islands#blueShieldIcon';  // Иконка щита для сбития
-                    if (type === 'bpla') iconPreset = 'islands#yellowCircleDotIcon'; // Точка для БПЛА
+                    if (type === 'fire') iconPreset = 'islands#orangeFlameIcon'; 
+                    if (type === 'down') iconPreset = 'islands#blueShieldIcon';  
+                    if (type === 'danger_bpla') iconPreset = 'islands#yellowCircleDotIcon'; // Желтая для опасности
+                    if (type === 'fly_bpla') iconPreset = 'islands#redCircleDotIcon'; // Красная для пролета БПЛА
+                    if (type === 'rocket') iconPreset = 'islands#darkRedCircleDotIcon'; // Темно-красная для ракеты
 
                     myPlacemark = new ymaps.Placemark(coords, {
                         balloonContent: html
