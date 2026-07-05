@@ -2,116 +2,142 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Radar System | Strategic Monitoring</title>
+    <title>Система мониторинга безопасности</title>
     <style>
         :root {
-            --bg: #0c0c0e; --panel: #141416; --safe: #33363b;
-            --yellow: #ffcc00; --red: #ff3333; --dark-red: #8b0000;
+            --bg-color: #0a0e14;
+            --panel-bg: rgba(15, 20, 30, 0.9);
+            --gold: #d4af37;
+            --color-bpla: #ffeb3b; /* Желтый */
+            --color-alert: #ff0000; /* Красный */
+            --color-missile: #8b0000; /* Темно-красный */
+            --color-avia: #8b4513; /* Коричневый */
         }
-        body { background: var(--bg); color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
-        
-        #map-container { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
-        svg { width: 95%; height: 95%; }
-        path { fill: var(--safe); stroke: #2a2a2a; stroke-width: 0.5px; transition: fill 0.3s; cursor: pointer; }
-        
-        .threat-yellow { fill: var(--yellow) !important; }
-        .threat-red { fill: var(--red) !important; }
-        .threat-dark-red { fill: var(--dark-red) !important; }
 
-        #tooltip { position: absolute; background: rgba(20, 20, 25, 0.95); padding: 10px; border-radius: 4px; border: 1px solid #444; pointer-events: none; display: none; font-size: 0.9rem; z-index: 1000; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        body {
+            background-color: var(--bg-color);
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            overflow: hidden;
+        }
 
-        .legend { position: fixed; bottom: 30px; left: 30px; background: rgba(20, 20, 25, 0.9); padding: 15px; border-radius: 6px; border: 1px solid #333; }
-        .legend-item { display: flex; align-items: center; margin: 8px 0; font-size: 0.85rem; }
-        .box { width: 14px; height: 14px; margin-right: 12px; border-radius: 2px; }
-        #timestamp { position: fixed; bottom: 30px; right: 30px; font-size: 0.8rem; color: #777; }
+        /* Неоновая полоса флага */
+        .neon-flag {
+            height: 4px;
+            width: 100%;
+            background: linear-gradient(90deg, #fff 33%, #0039a6 33%, #0039a6 66%, #d52b1e 66%);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5), 0 0 10px rgba(0, 57, 166, 0.5), 0 0 10px rgba(213, 43, 30, 0.5);
+        }
+
+        .dashboard {
+            display: flex;
+            height: calc(100vh - 4px);
+        }
+
+        #map-container {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        svg { max-width: 90%; max-height: 90%; }
+        
+        /* Стили состояний для регионов */
+        .status-bpla { fill: var(--color-bpla) !important; }
+        .status-alert { fill: var(--color-alert) !important; }
+        .status-missile { fill: var(--color-missile) !important; }
+        .status-avia { fill: var(--color-avia) !important; }
+
+        /* Панель */
+        .control-panel {
+            width: 350px;
+            background: var(--panel-bg);
+            border-left: 1px solid var(--gold);
+            padding: 20px;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+        }
+
+        .region-card {
+            border: 1px solid var(--gold);
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        .last-update {
+            font-size: 0.8em;
+            color: var(--gold);
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
 
-    <div id="tooltip"></div>
-    <div id="map-container">Загрузка карты...</div>
-
-    <div class="legend">
-        <div class="legend-item"><div class="box" style="background:var(--safe)"></div> Безопасно</div>
-        <div class="legend-item"><div class="box" style="background:var(--yellow)"></div> Опасность БПЛА</div>
-        <div class="legend-item"><div class="box" style="background:var(--red)"></div> Тревога</div>
-        <div class="legend-item"><div class="box" style="background:var(--dark-red)"></div> Ракетная угроза</div>
+<div class="neon-flag"></div>
+<div class="dashboard">
+    <div id="map-container">
+        <!-- СЮДА ВСТАВЬТЕ ВАШ SVG (убедитесь что у путей есть ID) -->
+        <svg viewBox="0 0 1000 600">
+            <!-- Пример региона -->
+            <path id="RU-ZAB" d="..." fill="#2c3e50" stroke="#fff" />
+        </svg>
     </div>
 
-    <div id="timestamp">Обновление...</div>
+    <div class="control-panel">
+        <h1>Статус регионов</h1>
+        <div id="info-board">
+            <p>Выберите регион на карте для получения данных.</p>
+        </div>
+        <div class="last-update" id="update-time">Ожидание данных...</div>
+    </div>
+</div>
 
-    <script>
-        const tooltip = document.getElementById('tooltip');
+<script>
+    // Маппинг цветов к типам опасности
+    const threatConfig = {
+        'BPLA': { class: 'status-bpla', label: 'Беспилотная опасность' },
+        'ALERT': { class: 'status-alert', label: 'Тревога / Работа ПВО' },
+        'MISSILE': { class: 'status-missile', label: 'Ракетная опасность' },
+        'AVIA': { class: 'status-avia', label: 'Авиационная опасность' }
+    };
+
+    function updateRegion(regionId, type) {
+        const path = document.getElementById(regionId);
+        if (!path) return;
+
+        // Сброс классов
+        path.className.baseVal = ''; 
         
-        // Твой полный маппинг регионов
-        const regionMapping = {
-            "Адыгея": "RUAD", "Горный Алтай": "RUAL", "Алтай": "RUALT", "Амурская область": "RUAMU", 
-            "Архангельская область": "RUARK", "Астраханская область": "RUAST", "Башкортостан": "RUBA", 
-            "Белгородская область": "RUBEL", "Брянская область": "RUBRY", "Бурятия": "RUBU", 
-            "Чечня": "RUCE", "Челябинская область": "RUCHE", "Чукотка": "RUCHU", "Чувашия": "RUCU", 
-            "Дагестан": "RUDA", "Ингушетия": "RUIN", "Иркутская область": "RUIRK", "Ивановская область": "RUIVA", 
-            "Камчатка": "RUKAM", "Кабардино-Балкария": "RUKB", "Карачаево-Черкесия": "RUKC", 
-            "Краснодарский край": "RUKDA", "Кемеровская область": "RUKEM", "Калининградская область": "RUKGD", 
-            "Курганская область": "RUKGN", "Хабаровский край": "RUKHA", "Ханты-Мансийск": "RUKHM", 
-            "Кировская область": "RUKIR", "Хакасия": "RUKK", "Калмыкия": "RUKL", "Калужская область": "RUKLU", 
-            "Коми": "RUKO", "Костромская область": "RUKOS", "Карелия": "RUKR", "Курская область": "RUKRS", 
-            "Красноярский край": "RUKYA", "Ленинградская область": "RULEN", "Липецкая область": "RULIP", 
-            "Магаданская область": "RUMAG", "Марий-Эл": "RUME", "Мордовия": "RUMO", "Москва": "RUMOS", 
-            "Московская область": "RUMOW", "Мурманская область": "RUMUR", "Ненецкий АО": "RUNEN", 
-            "Новгородская область": "RUNGR", "Нижегородская область": "RUNIZ", "Новосибирская область": "RUNVS", 
-            "Омская область": "RUOMS", "Оренбургская область": "RUORE", "Орловская область": "RUORL", 
-            "Пермский край": "RUPER", "Пензенская область": "RUPNZ", "Приморский край": "RUPRI", 
-            "Псковская область": "RUPSK", "Ростовская область": "RUROS", "Рязанская область": "RURYA", 
-            "Якутия": "RUSA", "Сахалинская область": "RUSAK", "Самарская область": "RUSAM", 
-            "Саратовская область": "RUSAR", "Северная Осетия": "RUSE", "Смоленская область": "RUSMO", 
-            "Санкт-Петербург": "RUSPE", "Ставропольский край": "RUSTA", "Свердловская область": "RUSVE", 
-            "Татарстан": "RUTA", "Тамбовская область": "RUTAM", "Томская область": "RUTOM", 
-            "Тульская область": "RUTUL", "Тверская область": "RUTVE", "Тува": "RUTY", 
-            "Тюменская область": "RUTYU", "Удмуртия": "RUUD", "Ульяновская область": "RUULY", 
-            "Волгоградская область": "RUVGG", "Владимирская область": "RUVLA", "Вологодская область": "RUVLG", 
-            "Воронежская область": "RUVOR", "Ямало-Ненецкий АО": "RUYAN", "Ярославская область": "RUYAR", 
-            "Еврейская АО": "RUYEV", "Забайкальский край": "RUZAB"
-        };
-
-        const threatMap = {
-            'опасность по бпла': 'threat-yellow', 'тревога по бпла': 'threat-red', 
-            'работа пво': 'threat-red', 'фиксация бпла': 'threat-red', 'угроза атаки': 'threat-red',
-            'ракетная опасность': 'threat-dark-red'
-        };
-
-        async function init() {
-            try {
-                const resp = await fetch('map.svg');
-                document.getElementById('map-container').innerHTML = await resp.text();
-                document.querySelectorAll('path').forEach(path => {
-                    path.onmousemove = (e) => { tooltip.style.left = (e.pageX + 15) + 'px'; tooltip.style.top = (e.pageY + 15) + 'px'; };
-                    path.onmouseenter = (e) => { tooltip.style.display = 'block'; tooltip.innerHTML = `<strong>${e.target.id}</strong>`; };
-                    path.onmouseleave = () => tooltip.style.display = 'none';
-                });
-                update();
-                setInterval(update, 5000);
-            } catch(e) { document.getElementById('map-container').innerText = "Ошибка загрузки карты"; }
+        // Применение нового состояния
+        if (type && threatConfig[type]) {
+            path.classList.add(threatConfig[type].class);
+            updatePanel(regionId, threatConfig[type].label);
+        } else {
+            path.style.fill = "#2c3e50"; // Стандартный цвет
         }
+        
+        document.getElementById('update-time').innerText = 'Последнее обновление: ' + new Date().toLocaleTimeString();
+    }
 
-        async function update() {
-            try {
-                const res = await fetch('alert.json?t=' + Date.now());
-                const data = await res.json();
-                document.getElementById('timestamp').innerText = "Последнее обновление: " + new Date().toLocaleTimeString();
-                document.querySelectorAll('path').forEach(p => p.className.baseVal = '');
-                for (let reg in data) {
-                    const svgId = regionMapping[reg];
-                    if (svgId) {
-                        const el = document.getElementById(svgId);
-                        const status = data[reg].toLowerCase();
-                        for(let key in threatMap) {
-                            if(status.includes(key)) { if(el) el.className.baseVal = threatMap[key]; break; }
-                        }
-                    }
-                }
-            } catch(e) {}
-        }
-        init();
-    </script>
+    function updatePanel(regionId, statusText) {
+        const panel = document.getElementById('info-board');
+        panel.innerHTML = `
+            <div class="region-card">
+                <h3>Регион: ${regionId}</h3>
+                <p>Статус: <strong>${statusText}</strong></p>
+            </div>
+        `;
+    }
+
+    // Эмуляция получения данных с сервера (здесь будет ваш fetch)
+    function mockUpdate() {
+        // Пример: Обновляем Забайкальский край
+        updateRegion('RU-ZAB', 'BPLA');
+    }
+
+    setInterval(mockUpdate, 5000); // Проверка обновлений каждые 5 сек
+</script>
 </body>
 </html>
