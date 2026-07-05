@@ -2,142 +2,99 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Система мониторинга безопасности</title>
+    <title>Monitoring</title>
     <style>
         :root {
-            --bg-color: #0a0e14;
-            --panel-bg: rgba(15, 20, 30, 0.9);
-            --gold: #d4af37;
-            --color-bpla: #ffeb3b; /* Желтый */
-            --color-alert: #ff0000; /* Красный */
-            --color-missile: #8b0000; /* Темно-красный */
-            --color-avia: #8b4513; /* Коричневый */
+            --bg: #121212;
+            --panel: rgba(20, 20, 20, 0.9);
+            --gold: #c5a059;
+            --c-bpla: #ffc107;
+            --c-alert: #ff0000;
+            --c-missile: #8b0000;
+            --c-avia: #a0522d;
+            --c-safe: #333;
         }
 
-        body {
-            background-color: var(--bg-color);
-            color: white;
-            font-family: 'Segoe UI', sans-serif;
-            margin: 0;
-            overflow: hidden;
-        }
-
-        /* Неоновая полоса флага */
-        .neon-flag {
-            height: 4px;
-            width: 100%;
-            background: linear-gradient(90deg, #fff 33%, #0039a6 33%, #0039a6 66%, #d52b1e 66%);
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5), 0 0 10px rgba(0, 57, 166, 0.5), 0 0 10px rgba(213, 43, 30, 0.5);
-        }
-
-        .dashboard {
-            display: flex;
-            height: calc(100vh - 4px);
-        }
-
-        #map-container {
-            flex: 1;
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        svg { max-width: 90%; max-height: 90%; }
+        body { margin: 0; background: var(--bg); color: #fff; font-family: sans-serif; overflow: hidden; }
         
-        /* Стили состояний для регионов */
-        .status-bpla { fill: var(--color-bpla) !important; }
-        .status-alert { fill: var(--color-alert) !important; }
-        .status-missile { fill: var(--color-missile) !important; }
-        .status-avia { fill: var(--color-avia) !important; }
-
-        /* Панель */
-        .control-panel {
-            width: 350px;
-            background: var(--panel-bg);
-            border-left: 1px solid var(--gold);
-            padding: 20px;
-            box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+        .flag-line { 
+            height: 4px; width: 100%; 
+            background: linear-gradient(90deg, #fff 33%, #0039a6 33%, #0039a6 66%, #d52b1e 66%);
+            box-shadow: 0 0 10px rgba(255,255,255,0.2);
         }
 
-        .region-card {
-            border: 1px solid var(--gold);
-            padding: 15px;
-            margin-bottom: 10px;
+        #map-box { width: 100vw; height: 100vh; position: relative; }
+        svg { width: 100%; height: 100%; }
+
+        .legend { 
+            position: absolute; bottom: 20px; left: 20px; 
+            background: var(--panel); padding: 15px; border: 1px solid #333;
+        }
+        .item { display: flex; align-items: center; margin: 5px 0; font-size: 12px; }
+        .dot { width: 10px; height: 10px; margin-right: 8px; border-radius: 50%; }
+
+        #time-stamp { 
+            position: absolute; bottom: 20px; right: 20px; 
+            background: var(--panel); padding: 10px; border: 1px solid var(--gold);
+            font-size: 12px; color: var(--gold);
         }
 
-        .last-update {
-            font-size: 0.8em;
-            color: var(--gold);
-            margin-top: 20px;
-        }
+        .tooltip { position: absolute; background: var(--panel); padding: 8px; border: 1px solid var(--gold); display: none; pointer-events: none; z-index: 100; font-size: 12px; }
     </style>
 </head>
 <body>
 
-<div class="neon-flag"></div>
-<div class="dashboard">
-    <div id="map-container">
-        <!-- СЮДА ВСТАВЬТЕ ВАШ SVG (убедитесь что у путей есть ID) -->
-        <svg viewBox="0 0 1000 600">
-            <!-- Пример региона -->
-            <path id="RU-ZAB" d="..." fill="#2c3e50" stroke="#fff" />
-        </svg>
+<div class="flag-line"></div>
+
+<div id="map-box">
+    <!-- Сюда вставляй SVG -->
+    <svg id="main-map" viewBox="0 0 1000 600">
+        <path id="RU-PEN" class="region" d="..." fill="#333" stroke="#555" />
+    </svg>
+
+    <div class="legend">
+        <div class="item"><div class="dot" style="background:var(--c-safe)"></div> Безопасно</div>
+        <div class="item"><div class="dot" style="background:var(--c-bpla)"></div> Опасность БПЛА</div>
+        <div class="item"><div class="dot" style="background:var(--c-alert)"></div> Тревога / Атака</div>
+        <div class="item"><div class="dot" style="background:var(--c-missile)"></div> Ракетная угроза</div>
+        <div class="item"><div class="dot" style="background:var(--c-avia)"></div> Авиационная опасность</div>
     </div>
 
-    <div class="control-panel">
-        <h1>Статус регионов</h1>
-        <div id="info-board">
-            <p>Выберите регион на карте для получения данных.</p>
-        </div>
-        <div class="last-update" id="update-time">Ожидание данных...</div>
-    </div>
+    <div id="time-stamp">Последнее обновление: --:--:--</div>
+    <div id="tooltip" class="tooltip"></div>
 </div>
 
 <script>
-    // Маппинг цветов к типам опасности
-    const threatConfig = {
-        'BPLA': { class: 'status-bpla', label: 'Беспилотная опасность' },
-        'ALERT': { class: 'status-alert', label: 'Тревога / Работа ПВО' },
-        'MISSILE': { class: 'status-missile', label: 'Ракетная опасность' },
-        'AVIA': { class: 'status-avia', label: 'Авиационная опасность' }
+    const regionNames = { 'RU-PEN': 'Пензенская область' };
+    const threats = {
+        'BPLA': { c: 'var(--c-bpla)', t: 'Опасность БПЛА' },
+        'ALERT': { c: 'var(--c-alert)', t: 'ТРЕВОГА / АТАКА' },
+        'MISSILE': { c: 'var(--c-missile)', t: 'РАКЕТНАЯ УГРОЗА' },
+        'AVIA': { c: 'var(--c-avia)', t: 'АВИАЦИОННАЯ ОПАСНОСТЬ' }
     };
 
-    function updateRegion(regionId, type) {
-        const path = document.getElementById(regionId);
-        if (!path) return;
-
-        // Сброс классов
-        path.className.baseVal = ''; 
+    function updateRegion(id, type) {
+        const el = document.getElementById(id);
+        if (!el) return;
         
-        // Применение нового состояния
-        if (type && threatConfig[type]) {
-            path.classList.add(threatConfig[type].class);
-            updatePanel(regionId, threatConfig[type].label);
-        } else {
-            path.style.fill = "#2c3e50"; // Стандартный цвет
-        }
+        const data = threats[type];
+        el.style.fill = data ? data.c : 'var(--c-safe)';
+        el.dataset.info = data ? data.t : 'Безопасно';
         
-        document.getElementById('update-time').innerText = 'Последнее обновление: ' + new Date().toLocaleTimeString();
+        document.getElementById('time-stamp').innerText = 'Обновлено: ' + new Date().toLocaleTimeString();
     }
 
-    function updatePanel(regionId, statusText) {
-        const panel = document.getElementById('info-board');
-        panel.innerHTML = `
-            <div class="region-card">
-                <h3>Регион: ${regionId}</h3>
-                <p>Статус: <strong>${statusText}</strong></p>
-            </div>
-        `;
-    }
-
-    // Эмуляция получения данных с сервера (здесь будет ваш fetch)
-    function mockUpdate() {
-        // Пример: Обновляем Забайкальский край
-        updateRegion('RU-ZAB', 'BPLA');
-    }
-
-    setInterval(mockUpdate, 5000); // Проверка обновлений каждые 5 сек
+    // Обработка наведения
+    document.querySelectorAll('.region').forEach(p => {
+        p.onmousemove = (e) => {
+            const tt = document.getElementById('tooltip');
+            tt.style.display = 'block';
+            tt.style.left = (e.pageX + 10) + 'px';
+            tt.style.top = (e.pageY + 10) + 'px';
+            tt.innerHTML = `<strong>${regionNames[p.id] || p.id}</strong><br>${p.dataset.info || 'Безопасно'}`;
+        };
+        p.onmouseleave = () => document.getElementById('tooltip').style.display = 'none';
+    });
 </script>
 </body>
 </html>
