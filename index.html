@@ -3,96 +3,65 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мониторинговый Радар РФ</title>
+    <title>Мониторинговый Ситуационный Центр Радар</title>
+    <!-- Подключаем стили профессиональных интерактивных карт Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com" />
     <style>
-        body, html { margin:0; padding:0; width:100%; height:100%; background:#0a0c10; font-family:sans-serif; overflow:hidden; color:#fff; }
-        .wrapper { width:100%; height:100%; display:flex; justify-content:center; align-items:center; position:relative; background:#0a0c10; }
+        body, html { margin:0; padding:0; width:100%; height:100%; background:#0b0c10; font-family:sans-serif; overflow:hidden; color:#fff; }
+        #map { width:100%; height:100%; background:#0b0c10; }
         
-        /* Векторная карта России */
-        svg { width:95%; height:85%; max-height:85vh; }
-        path { fill:#1c202a; stroke:#3a4253; stroke-width:1.2; transition: fill 0.3s ease, stroke 0.3s ease; }
-        path:hover { fill:#2d3548; cursor:pointer; stroke:#58a6ff; }
+        /* Кастомный стиль всплывающего окна в стиле киберпанк/военного интерфейса */
+        .custom-popup .leaflet-popup-content-wrapper { background:#11141a; color:#fff; border-radius:8px; padding:12px 18px; border:1px solid #30363d; box-shadow:0 12px 35px rgba(0,0,0,0.7); }
+        .custom-popup .leaflet-popup-tip { background:#11141a; border:1px solid #30363d; }
+        .popup-title { font-weight:bold; font-size:14px; margin-bottom:6px; color:#58a6ff; text-transform:uppercase; letter-spacing:1px; }
+        .popup-status { font-size:15px; font-weight:bold; margin-bottom:4px; }
         
-        /* Информационная панель по центру сверху */
-        .info-panel { position:absolute; top:25px; left:50%; transform:translateX(-50%); background:#161920; border:1px solid #2d3440; padding:15px 35px; border-radius:8px; text-align:center; min-width:320px; box-shadow:0 10px 30px rgba(0,0,0,0.6); z-index:2000; }
-        .system-lbl { font-size:11px; letter-spacing:2px; color:#58a6ff; font-weight:bold; margin-bottom:6px; text-transform:uppercase; }
-        #region-name { font-size:24px; font-weight:bold; margin-bottom:5px; color:#f0f6fc; }
-        #status-text { font-size:15px; font-weight:bold; padding:6px 12px; border-radius:4px; background:#0d1117; display:inline-block; border:1px solid #21262d; }
-        
-        /* Легенда */
-        .legend { position:absolute; bottom:25px; left:25px; background:rgba(22,25,32,0.95); padding:15px; border-radius:8px; font-size:12px; border:1px solid #2d3440; z-index:1000; }
+        /* Легенда системы */
+        .legend { position:absolute; bottom:25px; left:25px; background:rgba(17,20,26,0.95); padding:15px 20px; border-radius:8px; font-size:12px; border:1px solid #30363d; z-index:1000; box-shadow:0 10px 25px rgba(0,0,0,0.5); }
+        .legend-title { font-weight:bold; font-size:11px; color:#8b949e; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:10px; border-bottom:1px solid #21262d; padding-bottom:5px; }
         .legend-item { display:flex; align-items:center; margin-bottom:8px; }
         .legend-color { width:14px; height:14px; border-radius:3px; margin-right:10px; border:1px solid rgba(255,255,255,0.1); }
     </style>
 </head>
 <body>
 
-    <div class="wrapper">
-        <div class="info-panel">
-            <div class="system-lbl">🚨 СИСТЕМА МОНИТОРИНГА РАДАР</div>
-            <div id="region-name">РФ (Все регионы)</div>
-            <div id="status-text" style="color:#8b949e;">🟢 Обстановка спокойная. Сигналов нет.</div>
-        </div>
+    <div id="map"></div>
 
-        <!-- Полноценный векторный макет всех ключевых регионов РФ -->
-        <svg viewBox="0 0 1000 500">
-            <!-- Южный щит и Крым -->
-            <path id="Крым" title="Республика Крым" d="M120,420 L145,415 L155,430 L130,435 Z" />
-            <path id="Севастополь" title="Севастополь" d="M115,425 L125,422 L128,432 L118,435 Z" />
-            <path id="Краснодар" title="Краснодарский край" d="M160,395 L195,385 L200,415 L165,420 Z" />
-            <path id="Ставрополь" title="Ставропольский край" d="M200,400 L235,395 L240,420 L205,425 Z" />
-            <path id="Ростов" title="Ростовская область" d="M195,365 L240,355 L235,390 L195,385 Z" />
-            
-            <!-- Приграничные регионы -->
-            <path id="Брянск" title="Брянская область" d="M175,275 L215,270 L220,300 L180,305 Z" />
-            <path id="Курск" title="Курская область" d="M180,305 L220,300 L225,325 L185,330 Z" />
-            <path id="Белгород" title="Белгородская область" d="M185,330 L225,325 L230,355 L195,365 Z" />
-            <path id="Воронеж" title="Воронежская область" d="M225,325 L270,315 L275,350 L230,355 Z" />
-            
-            <!-- Поволжье и Центр -->
-            <path id="Москва" title="Москва и Московская область" d="M215,235 L260,230 L265,265 L220,270 Z" />
-            <path id="Тула" title="Тульская область" d="M220,270 L245,268 L248,288 L222,290 Z" />
-            <path id="Калуга" title="Калужская область" d="M200,265 L220,263 L222,283 L202,285 Z" />
-            <path id="Орел" title="Орловская область" d="M205,285 L230,283 L232,303 L207,305 Z" />
-            <path id="Липецк" title="Липецкая область" d="M235,285 L260,283 L262,303 L237,305 Z" />
-            <path id="Тамбов" title="Тамбовская область" d="M260,285 L285,283 L287,308 L262,310 Z" />
-            <path id="Пенза" title="Пензенская область" d="M270,285 L315,275 L320,310 L275,320 Z" />
-            <path id="Саратов" title="Саратовская область" d="M275,320 L335,305 L340,345 L280,350 Z" />
-            <path id="Самара" title="Самарская область" d="M335,275 L380,265 L385,300 L340,305 Z" />
-            <path id="Ульяновск" title="Ульяновская область" d="M320,255 L355,250 L360,275 L325,280 Z" />
-            <path id="Нижний Новгород" title="Нижегородская область" d="M280,220 L325,215 L330,250 L285,255 Z" />
-            <path id="Мордовия" title="Республика Мордовия" d="M285,255 L310,252 L312,272 L287,275 Z" />
-            <path id="Чувашия" title="Республика Чувашия" d="M315,240 L335,238 L337,258 L317,260 Z" />
-            <path id="Татарстан" title="Республика Татарстан" d="M340,220 L395,210 L400,245 L345,255 Z" />
-            <path id="Пермь" title="Пермский край" d="M400,160 L460,150 L465,210 L405,220 Z" />
-
-            <!-- Крупные сектора остальной России -->
-            <path id="Урал" title="Уральский Федеральный Округ" d="M465,150 L580,130 L540,400 L430,380 Z" />
-            <path id="Центральная Сибирь" title="Сибирский Федеральный Округ" d="M580,130 L780,100 L730,420 L540,400 Z" />
-            <path id="Дальний Восток" title="Дальневосточный Федеральный Округ" d="M780,100 L980,80 L920,380 L730,420 Z" />
-        </svg>
-
-        <div class="legend">
-            <div class="legend-item"><div class="legend-color" style="background:#1c202a;"></div> Норма / Ожидание</div>
-            <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Беспилотная опасность</div>
-            <div class="legend-item"><div class="legend-color" style="background:#ff0000;"></div> Пролет БПЛА</div>
-            <div class="legend-item"><div class="legend-color" style="background:#ff8c00;"></div> Пожар / Взрыв</div>
-            <div class="legend-item"><div class="legend-color" style="background:#4682b4;"></div> Сбитие БПЛА</div>
-            <div class="legend-item"><div class="legend-color" style="background:#8b0000;"></div> Ракетная угроза</div>
-        </div>
+    <div class="legend">
+        <div class="legend-title">Мониторинг РФ</div>
+        <div class="legend-item"><div class="legend-color" style="background:#21262d;"></div> Безопасно / Норма</div>
+        <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Опасность БПЛА</div>
+        <div class="legend-item"><div class="legend-color" style="background:#ff0000;"></div> Пролет БПЛА</div>
+        <div class="legend-item"><div class="legend-color" style="background:#ff8c00;"></div> Пожар / Взрыв</div>
+        <div class="legend-item"><div class="legend-color" style="background:#4682b4;"></div> Сбитие БПЛА</div>
+        <div class="legend-item"><div class="legend-color" style="background:#8b0000;"></div> Ракетная угроза</div>
     </div>
 
+    <!-- Загружаем библиотеки карты и геокодера -->
+    <script src="https://unpkg.com"></script>
     <script>
-        // Функция клика: выдает название региона по нажатию
-        document.querySelectorAll('path').forEach(region => {
-            region.addEventListener('click', function() {
-                let fullTitle = this.getAttribute('title') || this.id;
-                document.getElementById('region-name').innerText = fullTitle;
-                document.getElementById('status-text').innerText = "ℹ️ Регион выбран вручную";
-                document.getElementById('status-text').style.color = "#58a6ff";
-                document.getElementById('status-text').style.borderColor = "#58a6ff";
-            });
-        });
+        // Создаем глобальную интерактивную карту мира с фокусом на Россию
+        const map = L.map('map', { zoomControl: true }).setView([55.75, 37.62], 5);
+        
+        // Загружаем стильную, неубиваемую темную векторную подложку со всеми странами и городами мира
+        L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', {
+            maxZoom: 18,
+            attribution: ''
+        }).addTo(map);
+
+        let activeMarker = null;
+
+        // Поиск координат любого города РФ через открытый глобальный геокодер
+        async function getCoordinates(cityName) {
+            try {
+                let r = await fetch('https://openstreetmap.org' + encodeURIComponent(cityName + ', Россия'));
+                let d = await r.json();
+                if (d && d.length > 0) {
+                    return [parseFloat(d[0].lat), parseFloat(d[0].lon)];
+                }
+            } catch(e) { console.log(e); }
+            return null;
+        }
 
         async function loadData() {
             try {
@@ -100,46 +69,38 @@
                 if (!r.ok) return;
                 let j = await r.json();
 
-                // Сброс цветов перед обновлением
-                document.querySelectorAll('path').forEach(p => p.style.fill = '#1c202a');
-
                 if (j && j.active) {
-                    let activeTitle = j.place;
-                    
-                    // Сопоставляем имена бота с ID на карте
-                    let mappedId = j.place;
-                    if (j.place === "Орел") mappedId = "Орел";
-                    if (j.place === "Тула") mappedId = "Тула";
-                    if (j.place === "Калуга") mappedId = "Калуга";
-                    if (j.place === "Саратов") mappedId = "Саратов";
-                    if (j.place === "Самара") mappedId = "Самара";
-                    if (j.place === "Ульяновск") mappedId = "Ульяновск";
-                    if (j.place === "Нижний Новгород") mappedId = "Нижний Новгород";
-                    if (j.place === "Мордовия") mappedId = "Мордовия";
-                    if (j.place === "Чувашия") mappedId = "Чувашия";
-                    if (j.place === "Татарстан") mappedId = "Татарстан";
-                    if (j.place === "Пермь") mappedId = "Пермь";
+                    let coords = await getCoordinates(j.place);
+                    if (coords) {
+                        if (activeMarker) map.removeLayer(activeMarker);
 
-                    let targetRegion = document.getElementById(mappedId);
-                    if (targetRegion) {
-                        activeTitle = targetRegion.getAttribute('title') || j.place;
-                        targetRegion.style.fill = j.color;
+                        let popupHtml = `<div class="popup-title">🚨 ${j.place}</div>
+                                         <div class="popup-status" style="color:${j.color};">${j.status}</div>`;
+
+                        // Создаем красивый светящийся маркер-круг на карте вместо обычной стрелки
+                        activeMarker = L.circleMarker(coords, {
+                            radius: 12,
+                            fillColor: j.color,
+                            color: '#ffffff',
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(map).bindPopup(popupHtml, { className: 'custom-popup', closeButton: false }).openPopup();
+
+                        map.setView(coords, 7); // Автоматически и плавно приближаем карту к городу опасности
                     }
-
-                    document.getElementById('region-name').innerText = activeTitle;
-                    document.getElementById('status-text').innerText = j.status;
-                    document.getElementById('status-text').style.color = j.color;
-                    document.getElementById('status-text').style.borderColor = j.color;
                 } else {
-                    document.getElementById('region-name').innerText = "РФ (Все регионы)";
-                    document.getElementById('status-text').innerText = "🟢 Обстановка спокойная. Сигналов нет.";
-                    document.getElementById('status-text').style.color = "#8b949e";
-                    document.getElementById('status-text').style.borderColor = "#21262d";
+                    // Если угроз нет, убираем маркер
+                    if (activeMarker) {
+                        map.removeLayer(activeMarker);
+                        activeMarker = null;
+                    }
                 }
             } catch(e) {}
         }
 
-        setInterval(loadData, 10000);
+        // Обновляем данные каждые 12 секунд
+        setInterval(loadData, 12000);
         loadData();
     </script>
 </body>
