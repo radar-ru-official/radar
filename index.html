@@ -3,8 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мониторинг</title>
-    <!-- Официальный скрипт Яндекса, работает везде -->
+    <title>Мониторинг Радар РФ</title>
     <script src="https://yandex.ru" type="text/javascript"></script>
     <style>
         body, html { margin:0; padding:0; width:100%; height:100%; background:#0f1115; font-family:sans-serif; overflow:hidden; }
@@ -19,20 +18,20 @@
 <body>
     <div id="map"></div>
     <div class="legend">
-        <div class="legend-item"><div class="legend-color" style="background:#22252c;"></div> Безопасно</div>
-        <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Опасность БПЛА</div>
-        <div class="legend-item"><div class="legend-color" style="background:#b22222;"></div> Тревога БПЛА</div>
+        <div class="legend-item"><div class="legend-color" style="background:#22252c;"></div> Безопасно / Отбой</div>
+        <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Пролет БПЛА</div>
+        <div class="legend-item"><div class="legend-color" style="background:#ff8c00;"></div> Пожар / Взрыв</div>
+        <div class="legend-item"><div class="legend-color" style="background:#4682b4;"></div> Сбитие БПЛА</div>
         <div class="legend-item"><div class="legend-color" style="background:#8b0000;"></div> Ракетная угроза</div>
     </div>
 
     <script>
         let myMap = null;
-        let myPlacemark = null; // Тут исправили None на null, теперь все заработает
+        let myPlacemark = null;
 
         ymaps.ready(init);
 
         function init() {
-            // Создаем карту Яндекса
             myMap = new ymaps.Map("map", {
                 center: [55.7, 41.6],
                 zoom: 5,
@@ -42,9 +41,8 @@
             setInterval(loadData, 15000);
         }
 
-        async function findPlace(name, txt, clr) {
+        async function findPlace(name, txt, clr, type) {
             try {
-                // Ищем координаты любого города/села через поиск Яндекса
                 let res = await ymaps.geocode(name + ', Россия');
                 let firstGeoObject = res.geoObjects.get(0);
                 if (firstGeoObject) {
@@ -55,10 +53,16 @@
                     let html = `<div class="popup-title">${name}</div>
                                 <div class="popup-status" style="color:${clr};">${txt}</div>`;
 
+                    // Подбираем красивую иконку Яндекса под тип события
+                    let iconPreset = 'islands#redIcon';
+                    if (type === 'fire') iconPreset = 'islands#orangeFlameIcon'; // Иконка огня для пожара
+                    if (type === 'down') iconPreset = 'islands#blueShieldIcon';  // Иконка щита для сбития
+                    if (type === 'bpla') iconPreset = 'islands#yellowCircleDotIcon'; // Точка для БПЛА
+
                     myPlacemark = new ymaps.Placemark(coords, {
                         balloonContent: html
                     }, {
-                        preset: 'islands#redIcon'
+                        preset: iconPreset
                     });
 
                     myMap.geoObjects.add(myPlacemark);
@@ -73,7 +77,7 @@
                 let r = await fetch('alert.json?t=' + Date.now());
                 let j = await r.json();
                 if (j && j.active) {
-                    findPlace(j.place, j.status, j.color);
+                    findPlace(j.place, j.status, j.color, j.type);
                 }
             } catch(e) {}
         }
