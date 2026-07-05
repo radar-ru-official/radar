@@ -2,49 +2,60 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>РАДАР РФ</title>
+    <title>РАДАР РФ | ОПЕРАТИВНАЯ ОБСТАНОВКА</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: 'Consolas', monospace; overflow: hidden; }
-        #map { height: 100vh; width: 100%; }
+        :root { --white: #ffffff; --blue: #0039a6; --red: #d52b1e; }
+        body { margin: 0; background: #050505; color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        #map { height: 100vh; width: 100%; filter: grayscale(0.2) contrast(1.1); }
+
+        /* Панель */
+        .ui-panel { position: absolute; top: 20px; left: 20px; z-index: 1000; width: 360px; background: rgba(10, 10, 12, 0.95); border: 1px solid #222; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+        .tricolor-bar { height: 4px; width: 100%; background: linear-gradient(90deg, var(--white) 33.3%, var(--blue) 33.3% 66.6%, var(--red) 66.6%); }
+        .panel-content { padding: 20px; }
+        .branding { font-size: 22px; font-weight: 700; letter-spacing: 1px; color: #fff; margin-bottom: 5px; }
+        .subheader { font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 20px; }
         
-        /* Строгая панель */
-        .ui { position: absolute; top: 15px; left: 15px; z-index: 1000; background: #000; border: 1px solid #333; padding: 20px; width: 320px; }
-        .title { font-size: 22px; color: #fff; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #00ff41; padding-bottom: 5px; }
-        .log-item { border-bottom: 1px solid #222; padding: 6px 0; font-size: 13px; color: #aaa; }
+        /* Список угроз */
+        .threat-header { font-size: 14px; font-weight: 600; color: #ddd; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .feed-container { max-height: 60vh; overflow-y: auto; }
+        .threat-card { background: #151515; padding: 12px; margin-bottom: 10px; border-left: 4px solid #555; }
+        .rocket { border-color: var(--red); }
+        .bpla { border-color: var(--blue); }
+        .card-title { font-weight: 600; margin-bottom: 5px; display: block; font-size: 13px; }
+        .card-desc { font-size: 12px; color: #aaa; }
         
-        /* Флаг */
-        .flag-box { position: fixed; bottom: 20px; right: 20px; z-index: 2000; font-size: 40px; }
-        
-        @keyframes pulse { 0% { fill-opacity: 0.7; } 50% { fill-opacity: 0.2; } 100% { fill-opacity: 0.7; } }
-        .pulse { animation: pulse 1.5s infinite; }
+        /* Флаг внизу */
+        .flag-box { position: fixed; bottom: 20px; right: 20px; z-index: 2000; font-size: 45px; opacity: 0.9; }
     </style>
 </head>
 <body>
 
-<div class="ui">
-    <div class="title">РАДАР РФ</div>
-    <div id="log">SYSTEM_READY...</div>
+<div class="ui-panel">
+    <div class="tricolor-bar"></div>
+    <div class="panel-content">
+        <div class="branding">РАДАР РФ</div>
+        <div class="subheader">ГОСУДАРСТВЕННАЯ СИСТЕМА МОНИТОРИНГА</div>
+        
+        <div class="threat-header">АКТУАЛЬНЫЕ УГРОЗЫ</div>
+        <div class="feed-container" id="log">
+            <div style="font-size: 12px; color: #444;">ИДЕТ СИНХРОНИЗАЦИЯ ДАННЫХ...</div>
+        </div>
+    </div>
 </div>
 
 <div class="flag-box">🇷🇺</div>
-
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // Сюда вписывай соответствия, если регион не красится
-    const nameMap = {
-        "Moscow": "Московская область",
-        "Belgorod": "Белгородская область"
-    };
-
     const map = L.map('map', {zoomControl: false}).setView([60.0, 50.0], 4);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
 
     let alerts = {};
     let geoData = null;
 
+    // Загрузка
     Promise.all([
         fetch('regions.geojson').then(r => r.json()).catch(() => null),
         fetch('alert.json?t=' + Date.now()).then(r => r.json()).catch(() => ({}))
@@ -60,15 +71,22 @@
         
         window.layer = L.geoJSON(geoData, {
             style: (feature) => {
-                const name = feature.properties.name;
-                const internalName = nameMap[name] || name;
-                const alert = alerts[internalName];
-                
-                if (alert) {
-                    const color = alert.status.includes("РАКЕТНАЯ") ? "#ff0000" : "#ffcc00";
-                    return { fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.7, className: 'pulse' };
+                const geoName = feature.properties.name.toLowerCase();
+                let match = null;
+
+                // УМНЫЙ ПОИСК: ищем совпадение текста бота внутри названия региона карты
+                for (const alertKey in alerts) {
+                    if (geoName.includes(alertKey.toLowerCase())) {
+                        match = alerts[alertKey];
+                        break;
+                    }
                 }
-                return { fillColor: "#000", color: "#111", weight: 0.5, fillOpacity: 0.8 };
+                
+                if (match) {
+                    const color = match.status.includes("РАКЕТНАЯ") ? "#d52b1e" : "#0039a6";
+                    return { fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.8 };
+                }
+                return { fillColor: "#111", color: "#222", weight: 0.5, fillOpacity: 0.6 };
             }
         }).addTo(map);
     }
@@ -76,9 +94,19 @@
     function updateLog() {
         const log = document.getElementById('log');
         const keys = Object.keys(alerts);
-        log.innerHTML = keys.length > 0 
-            ? keys.map(k => `<div class="log-item">${k}: ${alerts[k].status}</div>`).join('') 
-            : "<div class='log-item' style='color:#00ff41'>STATUS: CLEAR</div>";
+        if (keys.length === 0) {
+            log.innerHTML = "<div style='font-size:12px; color:#00ff41;'>ОБСТАНОВКА СПОКОЙНАЯ</div>";
+            return;
+        }
+        log.innerHTML = keys.map(k => {
+            const isRocket = alerts[k].status.includes("РАКЕТНАЯ");
+            return `
+                <div class="threat-card ${isRocket ? 'rocket' : 'bpla'}">
+                    <span class="card-title">${k}</span>
+                    <span class="card-desc">${alerts[k].status}</span>
+                </div>
+            `;
+        }).join('');
     }
 </script>
 </body>
