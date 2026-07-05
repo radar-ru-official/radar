@@ -4,73 +4,75 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мониторинг Радар РФ</title>
-    <!-- Открытые карты, работающие без ключей и ограничений -->
-    <link rel="stylesheet" href="https://unpkg.com" />
     <style>
-        body, html { margin:0; padding:0; width:100%; height:100%; background:#0f1115; font-family:sans-serif; overflow:hidden; }
-        #map { width:100%; height:100%; background:#0f1115; }
-        .custom-popup .leaflet-popup-content-wrapper { background:#1a1d24; color:#fff; border-radius:6px; padding:5px; border:1px solid #3a3f4d; }
-        .custom-popup .leaflet-popup-tip { background:#1a1d24; }
-        .popup-title { font-weight:bold; font-size:14px; margin-bottom:5px; color:#a0a5b5; }
-        .popup-status { font-size:13px; font-weight:bold; }
-        .legend { position:absolute; bottom:20px; left:20px; background:rgba(26,29,36,0.95); padding:15px; border-radius:8px; color:#fff; z-index:1000; font-size:12px; border:1px solid #3a3f4d; }
+        body, html { margin:0; padding:0; width:100%; height:100%; background:#0a0c10; font-family:sans-serif; overflow:hidden; color:#fff; }
+        .wrapper { width:100%; height:100%; display:flex; justify-content:center; align-items:center; position:relative; }
+        svg { width:90%; height:80%; max-height:85vh; filter: drop-shadow(0px 10px 20px rgba(0,0,0,0.6)); }
+        path { fill:#161b22; stroke:#30363d; stroke-width:1.5; transition: fill 0.3s ease, stroke 0.3s ease; }
+        path:hover { fill:#21262d; cursor:pointer; }
+        .info-panel { position:absolute; top:30px; left:50%; transform:translateX(-50%); background:#161a22; border:1px solid #30363d; padding:20px 40px; border-radius:10px; text-align:center; min-width:300px; box-shadow:0 10px 25px rgba(0,0,0,0.5); }
+        .system-lbl { font-size:11px; letter-spacing:2px; color:#58a6ff; font-weight:bold; margin-bottom:8px; text-transform:uppercase; }
+        #region-name { font-size:28px; font-weight:bold; margin-bottom:6px; color:#f0f6fc; }
+        #status-text { font-size:16px; font-weight:bold; padding:8px 16px; border-radius:5px; background:#0d1117; display:inline-block; border:1px solid #21262d; }
+        .legend { position:absolute; bottom:25px; left:25px; background:rgba(22,26,34,0.95); padding:15px; border-radius:8px; font-size:12px; border:1px solid #30363d; }
         .legend-item { display:flex; align-items:center; margin-bottom:8px; }
         .legend-color { width:14px; height:14px; border-radius:3px; margin-right:10px; }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div class="legend">
-        <div class="legend-item"><div class="legend-color" style="background:#22252c;"></div> Безопасно / Отбой</div>
-        <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Беспилотная опасность</div>
-        <div class="legend-item"><div class="legend-color" style="background:#ff0000;"></div> Пролет БПЛА</div>
-        <div class="legend-item"><div class="legend-color" style="background:#ff8c00;"></div> Пожар / Взрыв</div>
-        <div class="legend-item"><div class="legend-color" style="background:#4682b4;"></div> Сбитие БПЛА</div>
-        <div class="legend-item"><div class="legend-color" style="background:#8b0000;"></div> Ракетная угроза</div>
+    <div class="wrapper">
+        <div class="info-panel">
+            <div class="system-lbl">🚨 СИСТЕМА МОНИТОРИНГА РАДАР</div>
+            <div id="region-name">РФ (Все регионы)</div>
+            <div id="status-text" style="color:#8b949e;">🟢 Обстановка спокойная. Сигналов нет.</div>
+        </div>
+        <svg viewBox="0 0 1000 500">
+            <path id="Крым" d="M120,410 L140,405 L150,420 L130,425 Z" />
+            <path id="Краснодар" d="M160,390 L190,380 L195,410 L165,415 Z" />
+            <path id="Ростов" d="M190,360 L230,350 L225,385 L190,380 Z" />
+            <path id="Брянск" d="M175,270 L210,265 L215,295 L180,300 Z" />
+            <path id="Курск" d="M180,300 L215,295 L220,320 L185,325 Z" />
+            <path id="Белгород" d="M185,325 L220,320 L225,350 L190,360 Z" />
+            <path id="Воронеж" d="M220,320 L260,310 L265,345 L225,350 Z" />
+            <path id="Москва" d="M210,230 L250,225 L255,260 L215,265 Z" />
+            <path id="Пенза" d="M260,280 L300,270 L305,305 L265,315 Z" />
+            <path id="Саратов" d="M265,315 L320,300 L325,340 L265,345 Z" />
+            <path id="Самара" d="M320,270 L360,260 L365,295 L325,300 Z" />
+            <path id="Центральная Сибирь" d="M360,150 L800,100 L750,400 L350,380 Z" />
+            <path id="Дальний Восток" d="M800,100 L980,80 L920,380 L750,400 Z" />
+        </svg>
+        <div class="legend">
+            <div class="legend-item"><div class="legend-color" style="background:#161b22;"></div> Норма / Ожидание</div>
+            <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Беспилотная опасность</div>
+            <div class="legend-item"><div class="legend-color" style="background:#ff0000;"></div> Пролет БПЛА</div>
+            <div class="legend-item"><div class="legend-color" style="background:#ff8c00;"></div> Пожар / Взрыв</div>
+            <div class="legend-item"><div class="legend-color" style="background:#4682b4;"></div> Сбитие БПЛА</div>
+            <div class="legend-item"><div class="legend-color" style="background:#8b0000;"></div> Ракетная угроза</div>
+        </div>
     </div>
-
-    <script src="https://unpkg.com"></script>
     <script>
-        // Инициализируем карту сразу по умолчанию на центр РФ
-        const map = L.map('map').setView([55.75, 37.62], 5);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
-
-        let pop = null;
-
-        async function findPlace(name, txt, clr) {
-            if (!name || name === "РФ") return;
-            try {
-                // Ищем координаты места через бесплатный геокодер
-                let r = await fetch('https://openstreetmap.org' + encodeURIComponent(name + ', Россия'));
-                let d = await r.json();
-                if (d && d.length > 0) {
-                    let lt = parseFloat(d[0].lat);
-                    let ln = parseFloat(d[0].lon);
-                    
-                    if (pop) map.closePopup(pop);
-                    
-                    let h = `<div class="popup-title">${name}</div>
-                             <div class="popup-status" style="color:${clr};">${txt}</div>`;
-                             
-                    pop = L.popup({ className:'custom-popup', closeButton:false }).setLatLng([lt, ln]).setContent(h);
-                    map.setView([lt, ln], 8);
-                    pop.openOn(map);
-                }
-            } catch(e) { console.log(e); }
-        }
-
         async function loadData() {
             try {
                 let r = await fetch('alert.json?t=' + Date.now());
                 if (!r.ok) return;
                 let j = await r.json();
+                document.querySelectorAll('path').forEach(p => p.style.fill = '#161b22');
                 if (j && j.active) {
-                    findPlace(j.place, j.status, j.color);
+                    document.getElementById('region-name').innerText = j.place;
+                    document.getElementById('status-text').innerText = j.status;
+                    document.getElementById('status-text').style.color = j.color;
+                    document.getElementById('status-text').style.borderColor = j.color;
+                    let activeRegion = document.getElementById(j.place);
+                    if (activeRegion) activeRegion.style.fill = j.color;
+                } else {
+                    document.getElementById('region-name').innerText = "РФ (Все регионы)";
+                    document.getElementById('status-text').innerText = "🟢 Обстановка спокойная. Сигналов нет.";
+                    document.getElementById('status-text').style.color = "#8b949e";
+                    document.getElementById('status-text').style.borderColor = "#21262d";
                 }
             } catch(e) {}
         }
-
-        setInterval(loadData, 15000);
+        setInterval(loadData, 10000);
         loadData();
     </script>
 </body>
