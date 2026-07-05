@@ -7,260 +7,123 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { 
-            margin: 0; 
-            padding: 0; 
-            background: #090c10; 
-            color: #c9d1d9; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            display: flex; 
-            height: 100vh; 
-            overflow: hidden; 
-        }
-        
-        /* Неоновый флаг РФ */
-        .neon-flag {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(90deg, #ffffff 33.3%, #0039a6 33.3% 66.6%, #d52b1e 66.6%);
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2), 0 0 20px rgba(0, 57, 166, 0.4), 0 0 20px rgba(213, 43, 30, 0.4);
-            z-index: 9999;
-        }
-
-        #map { 
-            flex: 1; 
-            background: #090c10;
-        }
-
-        /* Правая панель */
-        #sidebar { 
-            width: 380px; 
-            background: #161b22; 
-            border-left: 1px solid #30363d; 
-            display: flex; 
-            flex-direction: column; 
-            box-shadow: -5px 0 15px rgba(0,0,0,0.5);
-            z-index: 1000;
-        }
-
-        .header {
-            padding: 20px;
-            border-bottom: 1px solid #30363d;
-            background: #0d1117;
-        }
-
-        .title {
-            font-size: 18px;
-            font-weight: 700;
-            color: #ffffff;
-            margin-bottom: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .live-badge {
-            font-size: 11px;
-            background: rgba(229, 46, 46, 0.1);
-            color: #e52e2e;
-            padding: 3px 8px;
-            border-radius: 12px;
-            border: 1px solid rgba(229, 46, 46, 0.3);
-            animation: pulse 2s infinite;
-        }
-
-        .update-time {
-            font-size: 12px;
-            color: #8b949e;
-        }
-
-        #feed {
-            flex: 1;
-            overflow-y: auto;
-            padding: 15px;
-        }
-
-        .feed-item {
-            background: #21262d;
-            border: 1px solid #30363d;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 12px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Индикаторы слева у карточек */
-        .indicator {
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 5px;
-        }
-
-        .region-name {
-            font-weight: 600;
-            color: #ffffff;
-            font-size: 15px;
-            margin-bottom: 4px;
-        }
-
-        .threat-type {
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        /* Анимация пульса для Live */
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(229, 46, 46, 0.4); }
-            70% { box-shadow: 0 0 0 4px rgba(229, 46, 46, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(229, 46, 46, 0); }
-        }
-
-        /* Стилизация скроллбара */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0d1117; }
-        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+        body { margin: 0; background: #090c10; color: #c9d1d9; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        .neon-flag { position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, #fff 33%, #0039a6 33% 66%, #d52b1e 66%); z-index: 9999; box-shadow: 0 0 10px rgba(255,255,255,0.2); }
+        #map { flex: 1; background: #090c10; }
+        #sidebar { width: 380px; background: #161b22; border-left: 1px solid #30363d; display: flex; flex-direction: column; z-index: 1000; }
+        .header { padding: 20px; border-bottom: 1px solid #30363d; background: #0d1117; }
+        .title { font-size: 18px; font-weight: bold; color: #fff; display: flex; justify-content: space-between; }
+        .live-badge { font-size: 11px; background: rgba(229, 46, 46, 0.1); color: #e52e2e; padding: 3px 8px; border-radius: 12px; border: 1px solid #e52e2e; }
+        .update-time { font-size: 12px; color: #8b949e; margin-top: 5px; }
+        #feed { flex: 1; overflow-y: auto; padding: 15px; }
+        .feed-item { background: #21262d; border: 1px solid #30363d; padding: 15px; border-radius: 8px; margin-bottom: 12px; border-left: 5px solid; }
+        .region-name { font-weight: bold; color: #fff; font-size: 15px; margin-bottom: 5px; }
+        .threat-type { font-size: 13px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="neon-flag"></div>
-
 <div id="map"></div>
-
 <div id="sidebar">
     <div class="header">
-        <div class="title">
-            ОПЕРАТИВНАЯ СВОДКА
-            <span class="live-badge">● LIVE</span>
-        </div>
+        <div class="title">ОПЕРАТИВНАЯ СВОДКА <span class="live-badge">● LIVE</span></div>
         <div class="update-time" id="last-update">Ожидание данных...</div>
     </div>
-    <div id="feed">
-        <!-- Сюда падают уведомления -->
-    </div>
+    <div id="feed"></div>
 </div>
 
 <script>
-    // Настройки карты (убрал кнопки зума для красоты)
     const map = L.map('map', { zoomControl: false }).setView([62, 90], 3);
-    
-    // Темная красивая подложка
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
 
-    // Твои цвета
     const THREAT_DATA = {
-        'BPLA': { color: '#ffc107', label: 'Опасность БПЛА' },                        // Желтый
-        'ALERT': { color: '#e52e2e', label: 'Угроза атаки / Тревога БПЛА / ПВО' },    // Красный
-        'MISSILE': { color: '#8b0000', label: 'Ракетная опасность' },                 // Темно-красный
-        'AVIA': { color: '#8b4513', label: 'Авиационная / УАБ опасность' },           // Коричневый
-        'OFF': { color: '#21262d', label: 'Отбой' }                                   // Базовый цвет карты
+        'BPLA': { color: '#ffc107', label: 'Опасность БПЛА' },
+        'ALERT': { color: '#e52e2e', label: 'Угроза атаки / Тревога' },
+        'MISSILE': { color: '#8b0000', label: 'Ракетная опасность' },
+        'AVIA': { color: '#8b4513', label: 'Авиационная / УАБ опасность' },
+        'OFF': { color: '#21262d', label: 'Отбой' }
     };
 
-    // Словарь для перевода кодов твоего питон скрипта в нормальные названия для панели
-    const REGION_NAMES = {
+    const REGIONS = {
         'RU-MOS': 'Москва и МО', 'RU-PEN': 'Пензенская область', 'RU-KAL': 'Калужская область',
         'RU-LEN': 'Ленинградская область', 'RU-PSO': 'Псковская область', 'RU-SMO': 'Смоленская область',
         'RU-TVE': 'Тверская область', 'RU-BRY': 'Брянская область', 'RU-ORL': 'Орловская область',
         'RU-KUR': 'Курская область', 'RU-BEL': 'Белгородская область', 'RU-VOR': 'Воронежская область',
-        'RU-TAM': 'Тамбовская область', 'RU-SAR': 'Саратовская область', 'RU-KRA': 'Краснодарский край',
+        'RU-TAM': 'Тамбовская область', 'RU-SAR': 'Саратовская область', 'RU-KRA': 'Краснодарский',
         'RU-ROS': 'Ростовская область', 'RU-VOL': 'Волгоградская область', 'RU-AST': 'Астраханская область',
-        'RU-NIZ': 'Нижегородская область', 'RU-SAM': 'Самарская область', 'RU-TAT': 'Республика Татарстан',
-        'RU-KRM': 'Республика Крым', 'RU-SEV': 'Севастополь'
-        // Добавь остальные при необходимости
+        'RU-NIZ': 'Нижегородская область', 'RU-SAM': 'Самарская область', 'RU-TAT': 'Татарстан',
+        'RU-KRM': 'Крым', 'RU-SEV': 'Севастополь'
     };
 
     let geoJsonLayer;
     let currentAlerts = null;
-    let lastUpdateTimeText = 'Обновлено: ' + new Date().toLocaleTimeString();
 
-    // 1. Грузим саму геометрию регионов
-    fetch('russia.json').then(r => r.json()).then(data => {
-        geoJsonLayer = L.geoJSON(data, {
-            style: { fillColor: '#21262d', weight: 1, color: '#30363d', fillOpacity: 0.8 }
-        }).addTo(map);
-        
-        // Запускаем мониторинг
-        pollAlerts();
-    });
+    // Загрузка карты
+    fetch('russia.json')
+        .then(r => r.json())
+        .then(data => {
+            geoJsonLayer = L.geoJSON(data, {
+                style: { fillColor: '#21262d', weight: 1, color: '#30363d', fillOpacity: 0.8 }
+            }).addTo(map);
+            pollAlerts();
+        });
 
-    // 2. Функция, которая каждые 2 секунды тянет alert.json
+    // Опрос файла alert.json
     async function pollAlerts() {
         try {
-            // Добавляем ?t=... чтобы браузер не кешировал файл
             const res = await fetch('alert.json?t=' + Date.now());
             const newAlerts = await res.json();
             
-            // Если данные реально изменились
             if (JSON.stringify(newAlerts) !== JSON.stringify(currentAlerts)) {
                 currentAlerts = newAlerts;
-                
-                // Фиксируем реальное время обновления активности
-                lastUpdateTimeText = 'Активность обновлена: ' + new Date().toLocaleTimeString();
-                document.getElementById('last-update').innerText = lastUpdateTimeText;
-                
+                document.getElementById('last-update').innerText = 'Активность обновлена: ' + new Date().toLocaleTimeString();
                 updateMapAndFeed(newAlerts);
             }
-        } catch(e) {
-            console.log("Ожидание alert.json...");
-        }
-        
-        // Цикл на 2 секунды
+        } catch(e) {}
         setTimeout(pollAlerts, 2000);
     }
 
-    // 3. Функция отрисовки карты и панели
+    // Отрисовка
     function updateMapAndFeed(alerts) {
         const feed = document.getElementById('feed');
         feed.innerHTML = '';
-        
-        let activeThreatsCount = 0;
+        let count = 0;
 
-        // Красим карту
         geoJsonLayer.eachLayer(layer => {
-            // Внимание: скрипт ищет совпадение, потому что в russia.geojson могут быть разные свойства
-            // Если в твоем russia.json нет нормальных кодов, мы используем поиск по названию
             const props = layer.feature.properties;
-            const regionNameGeo = (props.name || props.NAME || props.NL_NAME_1 || "").toLowerCase();
+            const regionGeoName = (props.name || props.NAME || props.NL_NAME_1 || "").toLowerCase();
             
-            let regionThreat = 'OFF';
-            let matchedCode = null;
+            let currentThreat = 'OFF';
+            let currentCode = null;
 
-            // Связываем код из alert.json с геометрией карты
             for (let code in alerts) {
-                let rusName = (REGION_NAMES[code] || "").toLowerCase();
-                // Если название из нашего словаря есть в названии гео-файла
-                if (rusName && regionNameGeo.includes(rusName.split(' ')[0].replace('ская', ''))) {
-                    regionThreat = alerts[code];
-                    matchedCode = code;
+                // Упрощенный и надежный поиск региона по корню слова (например, "пензен")
+                let searchWord = (REGIONS[code] || "").toLowerCase().split(' ')[0].replace('ская', '').replace('ский', '');
+                
+                if (searchWord.length > 2 && regionGeoName.includes(searchWord)) {
+                    currentThreat = alerts[code];
+                    currentCode = code;
                     break;
                 }
             }
 
-            // Установка цвета на карте
-            const tData = THREAT_DATA[regionThreat] || THREAT_DATA['OFF'];
-            layer.setStyle({ fillColor: tData.color, fillOpacity: regionThreat !== 'OFF' ? 0.6 : 0.8 });
+            const tData = THREAT_DATA[currentThreat] || THREAT_DATA['OFF'];
+            layer.setStyle({ fillColor: tData.color, fillOpacity: currentThreat !== 'OFF' ? 0.6 : 0.8 });
 
-            // Если есть угроза, выводим в панель
-            if (regionThreat !== 'OFF' && matchedCode) {
-                activeThreatsCount++;
+            if (currentThreat !== 'OFF' && currentCode) {
+                count++;
                 feed.innerHTML += `
-                    <div class="feed-item">
-                        <div class="indicator" style="background: ${tData.color};"></div>
-                        <div class="region-name">${REGION_NAMES[matchedCode] || matchedCode}</div>
+                    <div class="feed-item" style="border-left-color: ${tData.color};">
+                        <div class="region-name">${REGIONS[currentCode]}</div>
                         <div class="threat-type" style="color: ${tData.color};">${tData.label}</div>
                     </div>
                 `;
             }
         });
 
-        if (activeThreatsCount === 0) {
-            feed.innerHTML = `<div style="text-align:center; color:#8b949e; margin-top:20px; font-size:13px;">На данный момент угрозы отсутствуют.</div>`;
+        if (count === 0) {
+            feed.innerHTML = '<div style="color:#8b949e; text-align:center; padding-top:20px;">Угрозы отсутствуют.</div>';
         }
     }
 </script>
