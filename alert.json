@@ -1,1 +1,1 @@
-{"active": true, "place": "Крым", "status": "🚨 РАКЕТНАЯ ОПАСНОСТЬ! Укрытие!", "color": "#8b0000", "type": "rocket"}
+{"active": true, "place": "Крым", "status": "🟡 Беспилотная опасность. Будьте бдительны.", "color": "#d4af37", "type": "danger_bpla"}
