@@ -1,90 +1,120 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <title>РАДАР РФ</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body { margin: 0; background: #050505; color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
-        #map { height: 100vh; width: 100%; filter: grayscale(0.2) contrast(1.1); }
-        .ui-panel { position: absolute; top: 20px; left: 20px; z-index: 1000; width: 340px; background: rgba(10, 10, 12, 0.95); border: 1px solid #222; border-radius: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .tricolor-bar { height: 4px; width: 100%; background: linear-gradient(90deg, #fff 33.3%, #0039a6 33.3% 66.6%, #d52b1e 66.6%); border-radius: 4px 4px 0 0; }
-        .panel-content { padding: 15px; }
-        .branding { font-size: 20px; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; }
-        .stop-btn { background: #500; color: #ff9999; border: 1px solid #800; padding: 5px 10px; border-radius: 3px; font-size: 12px; cursor: pointer; text-transform: uppercase; }
-        .stop-btn:hover { background: #800; }
-        .threat-header { font-size: 13px; color: #888; margin-bottom: 10px; border-bottom: 1px solid #222; padding-bottom: 5px; }
-        .feed-container { max-height: 65vh; overflow-y: auto; }
-        .threat-card { background: #151515; padding: 10px; margin-bottom: 8px; border-left: 3px solid #555; position: relative; }
-        .rocket { border-color: #8B0000; } .alarm { border-color: #FF5E5E; } .bpla { border-color: #FFD700; }
-        .card-title { font-weight: 600; font-size: 13px; display: block; }
-        .card-desc { font-size: 12px; color: #aaa; margin-top: 2px; }
-        .flag-box { position: fixed; bottom: 20px; right: 20px; z-index: 2000; font-size: 35px; opacity: 0.8; }
-    </style>
+<meta charset="UTF-8">
+<title>РАДАР РФ</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+body{margin:0;background:#050505;color:#fff;font-family:sans-serif;overflow:hidden}
+#map{height:100vh;width:100%;filter:grayscale(0.2) contrast(1.1)}
+.ui-panel{position:absolute;top:20px;left:20px;z-index:100;width:340px;background:rgba(10,10,12,0.95);border:1px solid #222;pointer-events:auto}
+.tricolor-bar{height:4px;width:100%;background:linear-gradient(90deg,#fff 33%,#0039a6 33% 66%,#d52b1e 66%)}
+.panel-content{padding:15px}
+.branding{font-size:20px;font-weight:bold;margin-bottom:15px}
+.threat-header{font-size:12px;color:#888;margin-bottom:10px;border-bottom:1px solid #222;padding-bottom:5px}
+.feed-container{max-height:65vh;overflow-y:auto}
+.threat-card{background:#151515;padding:10px;margin-bottom:8px;border-left:3px solid #555}
+.rocket{border-color:#8B0000} .alarm{border-color:#FF5E5E} .bpla{border-color:#FFD700}
+.card-title{font-weight:bold;font-size:13px;display:block}
+.card-desc{font-size:12px;color:#aaa;margin-top:2px}
+.flag-box{position:fixed;bottom:20px;right:20px;z-index:200;font-size:35px;opacity:0.8}
+.region-popup{position:absolute;z-index:2000;background:rgba(10,10,12,0.95);border:1px solid #222;padding:10px 15px;pointer-events:none;opacity:0;display:flex;align-items:center;gap:8px;box-shadow:0 4px 10px rgba(0,0,0,0.5)}
+.region-name{font-weight:bold;font-size:13px}
+.region-threat{font-size:12px;color:#aaa}
+.threat-indicator{width:10px;height:10px;border-radius:50%}
+</style>
 </head>
 <body>
 <div class="ui-panel">
-    <div class="tricolor-bar"></div>
-    <div class="panel-content">
-        <div class="branding">РАДАР РФ <button class="stop-btn">СТОП</button></div>
-        <div class="threat-header">АКТУАЛЬНЫЕ УГРОЗЫ</div>
-        <div class="feed-container" id="log">Загрузка...</div>
-    </div>
+<div class="tricolor-bar"></div>
+<div class="panel-content">
+<div class="branding">РАДАР РФ</div>
+<div class="threat-header">АКТУАЛЬНЫЕ УГРОЗЫ</div>
+<div class="feed-container" id="log">Загрузка...</div>
+</div>
 </div>
 <div class="flag-box">🇷🇺</div>
+
+<div id="region-popup" class="region-popup">
+<div>
+<div class="region-name" id="p-name">Регион</div>
+<div class="region-threat" id="p-threat">Статус</div>
+</div>
+<div class="threat-indicator" id="p-indicator"></div>
+</div>
+
 <div id="map"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map', {zoomControl: false}).setView([60.0, 50.0], 4);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', { maxZoom: 10 }).addTo(map);
-    let geoData = null;
+const map=L.map('map',{zoomControl:false}).setView([60,50],4);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{maxZoom:10}).addTo(map);
 
-    fetch('russia.geojson').then(r => r.json()).then(data => { geoData = data; }).catch(e => console.error(e));
+let gd=null;
+let pop=document.getElementById('region-popup');
+let p_nm=document.getElementById('p-name');
+let p_th=document.getElementById('p-threat');
+let p_ind=document.getElementById('p-indicator');
 
-    function refresh() {
-        if (!geoData) return;
-        fetch('alert.json?t=' + Date.now()).then(r => r.json()).then(alerts => {
-            if (window.layer) map.removeLayer(window.layer);
-            
-            window.layer = L.geoJSON(geoData, {
-                style: (f) => {
-                    const name = f.properties.name.toLowerCase().trim();
-                    let status = null;
-                    for (const key in alerts) {
-                        const alertKey = key.toLowerCase().trim();
-                        if (name.includes(alertKey) || alertKey.includes(name)) { 
-                            status = alerts[key].status; 
-                            break; 
-                        }
-                    }
-                    
-                    let color = "#1a1a1d";
-                    if (status) {
-                        const s = status.toLowerCase();
-                        if (s.includes("ракетная")) color = "#8B0000";
-                        else if (s.includes("тревога")) color = "#FF5E5E";
-                        else if (s.includes("бпла")) color = "#FFD700";
-                    }
-                    return { fillColor: color, color: "#2a2a2d", weight: 1, fillOpacity: 0.85 };
-                }
-            }).addTo(map);
+let cfg={
+    'ракетная':{c:'#8B0000',p:3},
+    'тревога':{c:'#FF5E5E',p:2},
+    'бпла':{c:'#FFD700',p:1},
+    'def':{c:'#1a1a1d',p:0}
+};
 
-            const keys = Object.keys(alerts).sort((a,b) => (alerts[b].status.includes("ракетная") ? 1 : -1));
-            document.getElementById('log').innerHTML = keys.length === 0 ? "Все штатно" : keys.map(k => {
-                const s = alerts[k].status.toLowerCase();
-                let cls = s.includes("ракетная") ? "rocket" : (s.includes("тревога") ? "alarm" : "bpla");
-                return `<div class="threat-card ${cls}"><span class="card-title">${k}</span><span class="card-desc">${alerts[k].status}</span></div>`;
-            }).join('');
-        });
+function chk_threat(alerts, nm){
+    let n=nm.toLowerCase().trim();
+    let st=null;
+    for(let k in alerts){
+        let ak=k.toLowerCase().trim();
+        if(n.includes(ak)||ak.includes(n)){st=alerts[k].status; break;}
     }
-    
-    let checkGeo = setInterval(() => {
-        if (geoData) { 
-            refresh(); 
-            clearInterval(checkGeo); 
-            setInterval(refresh, 5000); 
-        }
-    }, 100);
+    if(st){
+        let s=st.toLowerCase();
+        if(s.includes('ракетная')) return cfg['ракетная'];
+        if(s.includes('тревога')) return cfg['тревога'];
+        if(s.includes('бпла')) return cfg['бпла'];
+    }
+    return cfg['def'];
+}
+
+function upd(){
+    if(!gd) return;
+    fetch('alert.json?r='+Math.random()).then(r=>r.json()).then(al=>{
+        if(window.lyr) map.removeLayer(window.lyr);
+        
+        window.lyr=L.geoJSON(gd,{
+            style:(f)=>{
+                let i=chk_threat(al,f.properties.name);
+                return {fillColor:i.c, color:"#2a2a2d", weight:1, fillOpacity:0.85};
+            },
+            onEachFeature:(f,l)=>{
+                l.on('mouseover click', (e)=>{
+                    let i=chk_threat(al,f.properties.name);
+                    p_nm.innerText=f.properties.name;
+                    p_th.innerText=i.p>0?al[f.properties.name].status:'Тишина';
+                    p_ind.style.background=i.c;
+                    pop.style.opacity='1';
+                    
+                    let pt=map.latLngToContainerPoint(e.latlng);
+                    pop.style.left=(pt.x-140)+'px';
+                    pop.style.top=(pt.y-65)+'px';
+                    if(e.originalEvent.type==='click') map.panTo(e.latlng);
+                });
+                l.on('mouseout', ()=>pop.style.opacity='0');
+            }
+        }).addTo(map);
+
+        let ks=Object.keys(al).sort((a,b)=>chk_threat(al,b).p - chk_threat(al,a).p);
+        document.getElementById('log').innerHTML=ks.length===0?"Тишина":ks.map(k=>{
+            let i=chk_threat(al,k);
+            let cl=i.p===3?'rocket':(i.p===2?'alarm':'bpla');
+            return `<div class="threat-card ${cl}"><span class="card-title">${k}</span><span class="card-desc">${al[k].status}</span></div>`;
+        }).join('');
+    });
+}
+
+fetch('russia.geojson').then(r=>r.json()).then(d=>{gd=d; upd(); setInterval(upd,5000);});
 </script>
 </body>
 </html>
