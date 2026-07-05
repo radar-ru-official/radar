@@ -2,71 +2,87 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Radar Map</title>
+    <title>RADAR MAP</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; background: #0e0e0e; }
-        #map { height: 100vh; width: 100%; }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; background: #050505; color: #fff; }
+        #map { height: 100vh; width: 100%; z-index: 1; }
         
+        /* Экран загрузки */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center;
+        }
+        
+        /* Панель угроз */
         #panel {
             position: absolute; top: 20px; left: 20px; z-index: 1000;
-            background: rgba(20, 20, 20, 0.8); backdrop-filter: blur(10px);
-            color: #fff; padding: 20px; border-radius: 15px;
-            width: 300px; border: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            background: rgba(15, 15, 15, 0.85); backdrop-filter: blur(15px);
+            padding: 20px; border-radius: 20px; width: 320px;
+            border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.8);
         }
-        h3 { margin: 0 0 15px 0; font-size: 18px; color: #ff4757; text-transform: uppercase; }
-        .alert-item { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #333; font-size: 14px; }
-        .alert-item b { display: block; color: #fff; font-size: 16px; }
-        .source { font-size: 11px; color: #888; margin-top: 4px; font-style: italic; }
+        h3 { margin: 0 0 15px 0; color: #ff4757; font-size: 18px; text-transform: uppercase; letter-spacing: 1px; }
+        .alert-item { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #333; }
+        .alert-item b { display: block; font-size: 15px; }
+        .source { font-size: 11px; color: #aaa; margin-top: 5px; font-style: italic; }
     </style>
 </head>
 <body>
 
+<div id="loader">ЗАГРУЗКА КАРТЫ...</div>
 <div id="panel">
     <h3>Карта угроз</h3>
-    <div id="alerts">Список пуст</div>
+    <div id="alerts">Идет получение данных...</div>
 </div>
-
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    var map = L.map('map').setView([55.0, 45.0], 5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    // Инициализация карты (темная тема)
+    var map = L.map('map', {zoomControl: false}).setView([55.0, 45.0], 5);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; CartoDB'
+    }).addTo(map);
 
+    // Координаты для подсветки регионов
     var coords = {
-        "Москва": [55.7558, 37.6173], "Санкт-Петербург": [59.9343, 30.3351],
-        "Новосибирск": [55.0084, 82.9357], "Екатеринбург": [56.8389, 60.6057],
-        "Казань": [55.7961, 49.1064], "Нижний Новгород": [56.3261, 44.0058],
-        "Красноярск": [56.0153, 92.8932], "Челябинск": [55.1549, 61.4291],
-        "Самара": [53.2001, 50.1500], "Уфа": [54.7431, 55.9678],
-        "Ростов-на-Дону": [47.2357, 39.7015], "Омск": [54.9885, 73.3245],
-        "Краснодар": [45.0355, 38.9753], "Воронеж": [51.6608, 39.2003],
-        "Пермь": [58.0097, 56.2294], "Волгоград": [48.7080, 44.5133],
-        "Ярославль": [57.6261, 39.8845], "Рязань": [54.6095, 39.7126]
+        "Московская область": [55.6, 37.5], "Белгородская область": [50.6, 36.6],
+        "Курская область": [51.7, 36.2], "Воронежская область": [51.6, 39.2],
+        "Брянская область": [53.2, 34.3], "Тульская область": [54.2, 37.6],
+        "Пензенская область": [53.2, 45.0], "Республика Мордовия": [54.2, 45.2],
+        "Республика Чувашия": [55.8, 46.8], "Ростовская область": [47.2, 39.7],
+        "Краснодарский край": [45.0, 39.0], "Саратовская область": [51.5, 46.0],
+        "Липецкая область": [52.6, 39.6], "Орловская область": [52.9, 36.0]
     };
 
-    var markers = {};
+    var layers = [];
+
     function update() {
         fetch('alert.json?t=' + new Date().getTime())
             .then(r => r.json())
             .then(d => {
-                for (let m in markers) { map.removeLayer(markers[m]); }
+                document.getElementById('loader').style.display = 'none';
+                layers.forEach(l => map.removeLayer(l));
+                layers = [];
+                
                 let alerts = document.getElementById('alerts');
                 alerts.innerHTML = '';
                 
-                let active = false;
                 for (let p in d) {
-                    active = true;
-                    let source = d[p].source || "Неизвестно";
-                    alerts.innerHTML += `<div class="alert-item"><b>${p}</b>${d[p].status}<div class="source">Источник: ${source}</div></div>`;
+                    let status = d[p].status;
+                    let source = d[p].source;
+                    let color = status.includes("РАКЕТНАЯ") ? '#ff0000' : '#ffff00';
+                    
+                    alerts.innerHTML += `<div class="alert-item"><b>${p}</b><span style="color:${color}">${status}</span><div class="source">Источник: ${source}</div></div>`;
+                    
                     if (coords[p]) {
-                        markers[p] = L.marker(coords[p]).addTo(map)
-                            .bindPopup(`<b>${p}</b><br>${d[p].status}<br><small>Источник: ${source}</small>`);
+                        let circle = L.circle(coords[p], {
+                            color: color, fillColor: color, fillOpacity: 0.4, radius: 45000
+                        }).addTo(map).bindPopup(`<b>${p}</b><br>${status}<br><i>${source}</i>`);
+                        layers.push(circle);
                     }
                 }
-                if (!active) alerts.innerHTML = 'Все чисто.';
+                if (Object.keys(d).length === 0) alerts.innerHTML = 'Все чисто.';
             });
     }
 
