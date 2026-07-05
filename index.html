@@ -1,123 +1,207 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ситуационный Центр Радар РФ</title>
-    <script src="https://cloudflare.com"></script>
+    <title>Радар - Интерактивная карта</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body, html { margin:0; padding:0; width:100%; height:100%; background:#0b0c10; font-family:sans-serif; overflow:hidden; color:#fff; }
-        .wrapper { width:100%; height:100%; position:relative; background:#0b0c10; cursor:grab; }
-        .wrapper:active { cursor:grabbing; }
-        #map-container { width:100%; height:100%; }
-        .region { fill:#1c202a; stroke:#2f3644; stroke-width:0.8; transition: fill 0.3s ease; }
-        .region:hover { fill:#2d3548; stroke:#58a6ff; stroke-width:1.5; }
-        .info-panel { position:absolute; top:25px; left:50%; transform:translateX(-50%); background:#161920; border:1px solid #2d3440; padding:15px 35px; border-radius:8px; text-align:center; min-width:320px; box-shadow:0 10px 30px rgba(0,0,0,0.6); z-index:2000; pointer-events:none; }
-        .system-lbl { font-size:11px; letter-spacing:2px; color:#58a6ff; font-weight:bold; margin-bottom:6px; text-transform:uppercase; }
-        #region-name { font-size:24px; font-weight:bold; margin-bottom:5px; color:#f0f6fc; }
-        #status-text { font-size:15px; font-weight:bold; padding:6px 12px; border-radius:4px; background:#0d1117; display:inline-block; border:1px solid #21262d; }
-        .legend { position:absolute; bottom:25px; left:25px; background:rgba(22,25,32,0.95); padding:15px; border-radius:8px; font-size:12px; border:1px solid #2d3440; z-index:1000; pointer-events:none; }
-        .legend-item { display:flex; align-items:center; margin-bottom:8px; }
-        .legend-color { width:14px; height:14px; border-radius:3px; margin-right:10px; border:1px solid rgba(255,255,255,0.1); }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1c23;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+        #map-container {
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+        }
+        #map-container:active {
+            cursor: grabbing;
+        }
+        .region {
+            fill: #2a2d37;
+            stroke: #1a1c23;
+            stroke-width: 0.5px;
+            transition: fill 0.3s ease;
+            cursor: pointer;
+        }
+        .region:hover {
+            fill: #4682b4 !important;
+            stroke: #ffffff;
+            stroke-width: 1px;
+        }
+        #panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(34, 37, 44, 0.95);
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            pointer-events: none;
+            z-index: 10;
+            min-width: 250px;
+            border: 1px solid #333;
+        }
+        #panel-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        #panel-status {
+            font-size: 14px;
+            color: #4682b4;
+            line-height: 1.4;
+        }
+        .zoom-controls {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .zoom-btn {
+            background: rgba(34, 37, 44, 0.9);
+            color: #fff;
+            border: 1px solid #444;
+            width: 45px;
+            height: 45px;
+            font-size: 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .zoom-btn:hover {
+            background: #4682b4;
+            border-color: #fff;
+        }
     </style>
 </head>
 <body>
-
-    <div class="wrapper" id="map-wrapper">
-        <div class="info-panel">
-            <div class="system-lbl">🚨 СИСТЕМА МОНИТОРИНГА РАДАР</div>
-            <div id="region-name">РФ (Все регионы)</div>
-            <div id="status-text" style="color:#8b949e;">🟢 Обстановка спокойная. Сигналов нет.</div>
-        </div>
-
-        <div id="map-container"></div>
-
-        <div class="legend">
-            <div class="legend-item"><div class="legend-color" style="background:#1c202a;"></div> Норма / Ожидание</div>
-            <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Беспилотная опасность</div>
-            <div class="legend-item"><div class="legend-color" style="background:#ff0000;"></div> Пролет БПЛА</div>
-            <div class="legend-item"><div class="legend-color" style="background:#ff8c00;"></div> Пожар / Взрыв</div>
-            <div class="legend-item"><div class="legend-color" style="background:#4682b4;"></div> Сбитие БПЛА</div>
-            <div class="legend-item"><div class="legend-color" style="background:#8b0000;"></div> Ракетная угроза</div>
-        </div>
+    <div id="panel">
+        <div id="panel-title">Российская Федерация</div>
+        <div id="panel-status">Загрузка геоданных...</div>
+    </div>
+    
+    <div id="map-container"></div>
+    
+    <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-in">+</button>
+        <button class="zoom-btn" id="zoom-out">-</button>
     </div>
 
     <script>
         const width = window.innerWidth;
         const height = window.innerHeight;
 
-        const projection = d3.geoMercator()
-            .center([95, 62]) 
-            .scale(width * 0.45)
-            .translate([width / 2, height / 2]);
-
-        const pathGenerator = d3.geoPath().projection(projection);
-
         const svg = d3.select("#map-container")
             .append("svg")
-            .attr("width", "100%")
-            .attr("height", "100%");
+            .attr("width", width)
+            .attr("height", height);
 
         const g = svg.append("g");
 
+        const projection = d3.geoConicEqualArea()
+            .rotate([-100, 0])
+            .center([0, 65])
+            .scale(Math.min(width, height) * 1.2)
+            .translate([width / 2, height / 2]);
+
+        const path = d3.geoPath().projection(projection);
+
         const zoom = d3.zoom()
-            .scaleExtent([0.5, 8])
+            .scaleExtent([0.5, 10])
             .on("zoom", (event) => {
                 g.attr("transform", event.transform);
             });
 
-        d3.select("#map-wrapper").call(zoom);
+        svg.call(zoom);
 
-        d3.json("https://githubusercontent.com").then(data => {
-            g.selectAll("path")
-                .data(data.features)
-                .enter()
-                .append("path")
-                .attr("d", pathGenerator)
-                .attr("class", "region")
-                .attr("id", d => {
-                    let name = d.properties.name || "";
-                    return name.replace(" область", "").replace(" край", "").replace(" Республика", "").trim();
-                })
-                .on("click", function(event, d) {
-                    let regionFullName = d.properties.name || "Неизвестный регион";
-                    document.getElementById('region-name').innerText = regionFullName;
-                    document.getElementById('status-text').innerText = "ℹ️ Регион выбран вручную";
-                    document.getElementById('status-text').style.color = "#58a6ff";
-                    document.getElementById('status-text').style.borderColor = "#58a6ff";
-                });
-
-            loadData();
+        d3.select("#zoom-in").on("click", () => {
+            svg.transition().duration(300).call(zoom.scaleBy, 1.5);
         });
 
-        async function loadData() {
-            try {
-                let r = await fetch('alert.json?t=' + Date.now());
-                if (!r.ok) return;
-                let j = await r.json();
+        d3.select("#zoom-out").on("click", () => {
+            svg.transition().duration(300).call(zoom.scaleBy, 0.75);
+        });
 
-                g.selectAll(".region").style("fill", "#1c202a");
+        let currentAlert = null;
+        let mapDataLoaded = false;
 
-                if (j && j.active) {
-                    document.getElementById('region-name').innerText = j.place + "ская область";
-                    document.getElementById('status-text').innerText = j.status;
-                    document.getElementById('status-text').style.color = j.color;
-                    document.getElementById('status-text').style.borderColor = j.color;
+        d3.json("https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/russia.geojson")
+            .then(data => {
+                g.selectAll("path")
+                    .data(data.features)
+                    .enter()
+                    .append("path")
+                    .attr("class", "region")
+                    .attr("d", path)
+                    .attr("data-name", d => d.properties.name)
+                    .on("click", function(event, d) {
+                        document.getElementById("panel-title").innerText = d.properties.name;
+                    });
 
-                    let targetRegion = d3.select("#" + j.place);
-                    if (!targetRegion.empty()) {
-                        targetRegion.style("fill", j.color);
+                mapDataLoaded = true;
+                document.getElementById("panel-status").innerText = "Система активна. Ожидание данных...";
+                
+                fetchAlertData();
+                setInterval(fetchAlertData, 10000);
+            })
+            .catch(err => {
+                document.getElementById("panel-status").innerText = "Ошибка загрузки контуров карты.";
+                document.getElementById("panel-status").style.color = "#ff0000";
+                console.error(err);
+            });
+
+        function updateMapColors() {
+            if (!mapDataLoaded) return;
+            
+            g.selectAll(".region").style("fill", function(d) {
+                if (currentAlert && currentAlert.active && currentAlert.place) {
+                    if (d.properties.name.toLowerCase().includes(currentAlert.place.toLowerCase())) {
+                        return currentAlert.color;
                     }
-                } else {
-                    document.getElementById('region-name').innerText = "РФ (Все регионы)";
-                    document.getElementById('status-text').innerText = "🟢 Обстановка спокойная. Сигналов нет.";
-                    document.getElementById('status-text').style.color = "#8b949e";
-                    document.getElementById('status-text').style.borderColor = "#21262d";
                 }
-            } catch(e) {}
+                return "#2a2d37";
+            });
         }
 
-        setInterval(loadData, 10000);
+        async function fetchAlertData() {
+            try {
+                const response = await fetch(`alert.json?t=${Date.now()}`);
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                
+                if (JSON.stringify(currentAlert) !== JSON.stringify(data)) {
+                    currentAlert = data;
+                    
+                    if (data.active && data.place) {
+                        document.getElementById("panel-title").innerText = `Регион: ${data.place}`;
+                        document.getElementById("panel-status").innerText = data.status;
+                        document.getElementById("panel-status").style.color = data.color;
+                    } else {
+                        document.getElementById("panel-title").innerText = "Обстановка штатная";
+                        document.getElementById("panel-status").innerText = "🟢 Отбой угроз. Все спокойно.";
+                        document.getElementById("panel-status").style.color = "#228b22";
+                    }
+                    
+                    updateMapColors();
+                }
+            } catch (error) {
+                console.error("Ошибка чтения alert.json:", error);
+            }
+        }
+        
+        window.addEventListener('resize', () => {
+            svg.attr("width", window.innerWidth).attr("height", window.innerHeight);
+        });
     </script>
 </body>
 </html>
