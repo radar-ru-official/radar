@@ -4,120 +4,99 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мониторинговый Радар РФ</title>
-    <link rel="stylesheet" href="https://unpkg.com" />
     <style>
         body, html { margin:0; padding:0; width:100%; height:100%; background:#0b0c10; font-family:sans-serif; overflow:hidden; color:#fff; }
-        #map { width:100%; height:100%; background:#0b0c10; }
-        .custom-popup .leaflet-popup-content-wrapper { background:#161920; color:#fff; border-radius:6px; padding:10px 15px; border:1px solid #2d3440; box-shadow:0 10px 25px rgba(0,0,0,0.6); }
-        .custom-popup .leaflet-popup-tip { background:#161920; border:1px solid #2d3440; }
-        .popup-title { font-weight:bold; font-size:13px; margin-bottom:5px; color:#a0a5b5; text-align:center; }
-        .popup-status { font-size:14px; font-weight:bold; text-align:center; }
+        .wrapper { width:100%; height:100%; display:flex; justify-content:center; align-items:center; position:relative; background:#0b0c10; }
+        
+        /* Встроенная векторная карта */
+        svg { width:90%; height:85%; max-height:85vh; }
+        path { fill:#1c202a; stroke:#3a4253; stroke-width:1.5; transition: fill 0.5s ease; }
+        
+        /* Стильное окно оповещения по центру */
+        .alert-popup { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:#161920; border:1px solid #2d3440; padding:15px 25px; border-radius:6px; text-align:center; min-width:280px; box-shadow:0 10px 30px rgba(0,0,0,0.6); display:none; z-index:2000; }
+        .popup-title { font-weight:bold; font-size:13px; margin-bottom:5px; color:#a0a5b5; text-transform:uppercase; }
+        .popup-status { font-size:14px; font-weight:bold; }
+        
+        /* Легенда */
         .legend { position:absolute; bottom:25px; left:25px; background:rgba(22,25,32,0.95); padding:15px; border-radius:8px; font-size:12px; border:1px solid #2d3440; z-index:1000; }
         .legend-item { display:flex; align-items:center; margin-bottom:8px; }
         .legend-color { width:14px; height:14px; border-radius:3px; margin-right:10px; border:1px solid rgba(255,255,255,0.1); }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div class="legend">
-        <div class="legend-item"><div class="legend-color" style="background:#1c202a;"></div> Безопасно</div>
-        <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Опасность БПЛА</div>
-        <div class="legend-item"><div class="legend-color" style="background:#ff0000;"></div> Тревога БПЛА</div>
-        <div class="legend-item"><div class="legend-color" style="background:#ff8c00;"></div> Пожар / Взрыв</div>
-        <div class="legend-item"><div class="legend-color" style="background:#4682b4;"></div> Сбитие БПЛА</div>
-        <div class="legend-item"><div class="legend-color" style="background:#8b0000;"></div> Ракетная угроза</div>
+
+    <div class="wrapper">
+        <!-- Тёмное окно уведомления прямо по центру -->
+        <div class="alert-popup" id="popup">
+            <div class="popup-title" id="p-title">Регион</div>
+            <div class="popup-status" id="p-status">Статус</div>
+        </div>
+
+        <!-- Профессиональные векторные контуры областей России -->
+        <svg viewBox="0 0 800 450">
+            <!-- Крым -->
+            <path id="Крым" d="M190,360 L205,355 L215,365 L200,370 Z" />
+            <!-- Краснодарский край -->
+            <path id="Краснодар" d="M210,345 L235,335 L245,360 L220,365 Z" />
+            <!-- Ростовская область -->
+            <path id="Ростов" d="M235,315 L270,310 L265,340 L235,335 Z" />
+            <!-- Воронежская область -->
+            <path id="Воронеж" d="M255,280 L290,275 L285,305 L250,310 Z" />
+            <!-- Белгородская область -->
+            <path id="Белгород" d="M225,290 L255,280 L250,310 L230,312 Z" />
+            <!-- Курская область -->
+            <path id="Курск" d="M215,265 L250,260 L255,280 L225,290 Z" />
+            <!-- Брянская область -->
+            <path id="Брянск" d="M190,245 L225,240 L215,265 L185,260 Z" />
+            <!-- Пензенская область -->
+            <path id="Пенза" d="M295,245 L330,240 L335,270 L300,275 Z" />
+            <!-- Саратовская область -->
+            <path id="Саратов" d="M300,275 L350,260 L355,295 L305,300 Z" />
+            <!-- Самарская область -->
+            <path id="Самара" d="M350,235 L385,225 L390,255 L355,260 Z" />
+            <!-- Москва и МО -->
+            <path id="Москва" d="M245,195 L280,190 L285,220 L250,225 Z" />
+            <!-- Вся остальная часть РФ для фона -->
+            <path id="Остальная Россия" d="M385,130 L750,90 L700,350 L355,330 Z" />
+        </svg>
+
+        <div class="legend">
+            <div class="legend-item"><div class="legend-color" style="background:#1c202a;"></div> Безопасно</div>
+            <div class="legend-item"><div class="legend-color" style="background:#d4af37;"></div> Опасность БПЛА</div>
+            <div class="legend-item"><div class="legend-color" style="background:#ff0000;"></div> Тревога БПЛА</div>
+            <div class="legend-item"><div class="legend-color" style="background:#ff8c00;"></div> Пожар / Взрыв</div>
+            <div class="legend-item"><div class="legend-color" style="background:#4682b4;"></div> Сбитие БПЛА</div>
+            <div class="legend-item"><div class="legend-color" style="background:#8b0000;"></div> Ракетная угроза</div>
+        </div>
     </div>
-    <script src="https://unpkg.com"></script>
+
     <script>
-        const map = L.map('map', { zoomControl:false }).setView([55.0, 70.0], 4);
-        L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', { maxZoom: 10 }).addTo(map);
-        
-        let geojsonLayer = null;
-        let currentPopup = null;
-
-        // Полная база координат центров для всех регионов России (защита от падения скрипта)
-        const centerPoints = {
-            "Пенза": [53.20, 44.99], "Белгород": [50.60, 36.59], "Курск": [51.73, 36.19],
-            "Воронеж": [51.67, 39.18], "Брянск": [53.25, 34.36], "Крым": [45.34, 34.49],
-            "Ростов": [47.23, 39.70], "Самара": [53.20, 50.15], "Саратов": [51.54, 46.03],
-            "Мордовия": [54.18, 45.17], "Пермь": [58.01, 56.25], "Москва": [55.75, 37.61],
-            "Тул": [54.20, 37.61], "Калуг": [54.52, 36.27], "Орлов": [52.96, 36.06],
-            "Липецк": [52.60, 39.57], "Тамбов": [52.73, 41.44], "Ульян": [54.31, 48.40],
-            "Нижегор": [56.32, 44.00], "Чуваш": [55.51, 47.12], "Татарст": [55.79, 49.10],
-            "Краснодар": [45.03, 38.97], "Севастополь": [44.58, 33.52], "Рязан": [54.62, 39.73],
-            "Владимир": [56.12, 40.40], "Иванов": [56.99, 40.97], "Ярослав": [57.62, 39.87],
-            "Костром": [57.76, 40.92], "Твер": [56.85, 35.91], "Смолен": [54.78, 32.04],
-            "Вологд": [59.22, 39.89], "Псков": [57.81, 28.33], "Новгород": [58.52, 31.27],
-            "Ленингр": [59.93, 30.31], "Мурман": [68.96, 33.08], "Архангел": [64.54, 40.54],
-            "Карел": [61.77, 34.36], "коми": [61.66, 50.81], "Астрахан": [46.34, 48.03],
-            "Волгоград": [48.70, 44.51], "Калмык": [46.30, 44.25], "Адыге": [44.60, 40.10],
-            "Дагестан": [42.98, 47.50], "Чечн": [43.31, 45.69], "Ингуш": [43.16, 44.81],
-            "Осети": [43.02, 44.66], "Кабардин": [43.48, 43.60], "Карачаев": [44.22, 42.04],
-            "Ставропол": [45.04, 41.96], "Киров": [58.60, 49.66], "Удмурт": [56.85, 53.20],
-            "Марий": [56.63, 47.89], "Башкорт": [54.73, 55.96], "Челябин": [55.15, 61.42],
-            "Свердлов": [56.83, 60.60], "Курган": [55.44, 65.33], "Тюмен": [57.15, 65.53],
-            "Омск": [54.98, 73.36], "Томск": [56.49, 84.97], "Новосибир": [55.03, 82.92],
-            "Кемеров": [55.35, 86.08], "Алтай": [52.41, 84.18], "Хакас": [53.72, 91.44],
-            "Тыва": [51.71, 94.42], "Краснояр": [56.01, 92.86], "Иркут": [52.28, 104.28],
-            "Бурят": [51.83, 107.58], "Забайкал": [52.03, 113.50], "Якут": [62.02, 129.72],
-            "Амур": [50.27, 127.52], "Хабаров": [48.48, 135.08], "Примор": [43.11, 131.87],
-            "Сахалин": [46.95, 142.73], "Камчат": [53.02, 158.65], "Магадан": [59.56, 150.80],
-            "Чук": [64.73, 177.51], "Еврей": [48.79, 132.92], "Оренбург": [51.76, 55.09]
-        };
-
-        const regionsData = {
-            "type": "FeatureCollection",
-            "features": [
-                { "type": "Feature", "properties": { "name": "Пенза" }, "geometry": { "type": "Polygon", "coordinates": [[[44.5,53.8],[46.8,53.9],[47.1,52.5],[45.2,52.3],[44.5,53.8]]] } },
-                { "type": "Feature", "properties": { "name": "Белгород" }, "geometry": { "type": "Polygon", "coordinates": [[[35.5,51.0],[38.2,50.8],[38.0,49.8],[35.6,50.1],[35.5,51.0]]] } },
-                { "type": "Feature", "properties": { "name": "Курск" }, "geometry": { "type": "Polygon", "coordinates": [[[34.1,52.3],[38.5,51.9],[38.2,51.0],[35.5,51.0],[34.1,52.3]]] } },
-                { "type": "Feature", "properties": { "name": "Воронеж" }, "geometry": { "type": "Polygon", "coordinates": [[[38.2,51.9],[42.1,51.3],[41.5,49.6],[38.0,49.8],[38.2,51.9]]] } },
-                { "type": "Feature", "properties": { "name": "Брянск" }, "geometry": { "type": "Polygon", "coordinates": [[[31.3,53.4],[35.3,53.2],[34.5,51.9],[32.1,52.0],[31.3,53.4]]] } },
-                { "type": "Feature", "properties": { "name": "Крым" }, "geometry": { "type": "Polygon", "coordinates": [[[32.5,45.4],[34.6,46.1],[36.6,45.3],[33.5,44.4],[32.5,45.4]]] } },
-                { "type": "Feature", "properties": { "name": "Ростов" }, "geometry": { "type": "Polygon", "coordinates": [[[38.5,47.5],[40.8,49.5],[43.5,47.2],[39.5,46.2],[38.5,47.5]]] } }
-            ]
-        };
-
-        function style(feature, activeName, activeColor) {
-            let isCurrent = feature.properties.name === activeName;
-            return {
-                fillColor: isCurrent ? activeColor : '#1c202a',
-                weight: 1.5,
-                opacity: 1,
-                color: '#3a4253',
-                fillOpacity: isCurrent ? 0.6 : 0.2
-            };
-        }
-
         async function loadData() {
             try {
                 let r = await fetch('alert.json?t=' + Date.now());
                 if (!r.ok) return;
                 let j = await r.json();
 
-                if (geojsonLayer) map.removeLayer(geojsonLayer);
-                if (currentPopup) map.closePopup(currentPopup);
+                // Сброс цветов
+                document.querySelectorAll('path').forEach(p => {
+                    if(p.id !== "Остальная Россия") p.style.fill = '#1c202a';
+                });
 
-                let targetPlace = (j && j.active) ? j.place : "";
-                let targetColor = (j && j.active) ? j.color : "#1c202a";
-
-                geojsonLayer = L.geoJSON(regionsData, {
-                    style: function(feature) { return style(feature, targetPlace, targetColor); }
-                }).addTo(map);
+                let popup = document.getElementById('popup');
 
                 if (j && j.active) {
-                    let html = `<div class="popup-title">${j.place}</div>
-                                <div class="popup-status" style="color:${j.color};">${j.status}</div>`;
+                    document.getElementById('p-title').innerText = j.place + "ская область";
+                    document.getElementById('p-status').innerText = j.status;
+                    document.getElementById('p-status').style.color = j.color;
                     
-                    if (centerPoints[j.place]) {
-                        let center = centerPoints[j.place];
-                        currentPopup = L.popup({ className: 'custom-popup', closeButton: false }).setLatLng(center).setContent(html).openOn(map);
-                        map.setView(center, 6);
-                    } else {
-                        // Если регион новый (например, Пермь), выводим окно по центру общей карты
-                        currentPopup = L.popup({ className: 'custom-popup', closeButton: false }).setLatLng([55.0, 45.0]).setContent(html).openOn(map);
-                        map.setView([55.0, 45.0], 5);
+                    popup.style.display = 'block';
+
+                    let region = document.getElementById(j.place);
+                    if (region) {
+                        region.style.fill = j.color;
                     }
+                } else {
+                    popup.style.display = 'none';
                 }
             } catch(e) {}
         }
