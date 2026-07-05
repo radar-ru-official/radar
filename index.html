@@ -2,55 +2,57 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>RADAR_SYSTEM_CORE</title>
+    <title>РАДАР РФ</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: 'Consolas', monospace; overflow: hidden; }
         #map { height: 100vh; width: 100%; }
         
-        .panel { position: absolute; top: 10px; left: 10px; z-index: 1000; background: rgba(0,0,0,0.9); border: 1px solid #333; padding: 15px; width: 300px; color: #0f0; }
-        .alert-row { border-bottom: 1px solid #222; padding: 5px 0; font-size: 12px; }
+        /* Строгая панель */
+        .ui { position: absolute; top: 15px; left: 15px; z-index: 1000; background: #000; border: 1px solid #333; padding: 20px; width: 320px; }
+        .title { font-size: 22px; color: #fff; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #00ff41; padding-bottom: 5px; }
+        .log-item { border-bottom: 1px solid #222; padding: 6px 0; font-size: 13px; color: #aaa; }
         
-        /* Анимация пульсации для карты */
-        @keyframes pulse { 0% { fill-opacity: 0.6; } 50% { fill-opacity: 0.2; } 100% { fill-opacity: 0.6; } }
+        /* Флаг */
+        .flag-box { position: fixed; bottom: 20px; right: 20px; z-index: 2000; font-size: 40px; }
+        
+        @keyframes pulse { 0% { fill-opacity: 0.7; } 50% { fill-opacity: 0.2; } 100% { fill-opacity: 0.7; } }
         .pulse { animation: pulse 1.5s infinite; }
     </style>
 </head>
 <body>
 
-<div class="panel">
-    <div style="text-transform: uppercase; margin-bottom:10px; font-weight:bold;">[SYSTEM_DATA_FEED]</div>
-    <div id="log">WAITING FOR SIGNAL...</div>
+<div class="ui">
+    <div class="title">РАДАР РФ</div>
+    <div id="log">SYSTEM_READY...</div>
 </div>
+
+<div class="flag-box">🇷🇺</div>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // НАСТРОЙКА: Сюда пиши соответствие имен из твоего JSON и имен из GeoJSON
-    // Пример: "Имя_в_GeoJSON": "Имя_в_alert.json"
+    // Сюда вписывай соответствия, если регион не красится
     const nameMap = {
         "Moscow": "Московская область",
-        "Belgorod": "Белгородская область",
-        "Kursk": "Курская область",
-        "Voronezh": "Воронежская область"
-        // Допиши сюда остальные регионы, которые выдал диагностический скрипт
+        "Belgorod": "Белгородская область"
     };
 
-    const map = L.map('map', {zoomControl: false}).setView([55.0, 45.0], 5);
+    const map = L.map('map', {zoomControl: false}).setView([60.0, 50.0], 4);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
 
     let alerts = {};
     let geoData = null;
 
-    // Загрузка данных
     Promise.all([
-        fetch('regions.geojson').then(r => r.json()),
-        fetch('alert.json?t=' + Date.now()).then(r => r.json())
+        fetch('regions.geojson').then(r => r.json()).catch(() => null),
+        fetch('alert.json?t=' + Date.now()).then(r => r.json()).catch(() => ({}))
     ]).then(([geo, data]) => {
         geoData = geo;
         alerts = data;
-        renderMap();
+        if(geoData) renderMap();
+        updateLog();
     });
 
     function renderMap() {
@@ -58,31 +60,26 @@
         
         window.layer = L.geoJSON(geoData, {
             style: (feature) => {
-                const geoName = feature.properties.name; // имя из файла карты
-                const internalName = nameMap[geoName] || geoName; // переводим имя
+                const name = feature.properties.name;
+                const internalName = nameMap[name] || name;
                 const alert = alerts[internalName];
                 
                 if (alert) {
                     const color = alert.status.includes("РАКЕТНАЯ") ? "#ff0000" : "#ffcc00";
                     return { fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.7, className: 'pulse' };
                 }
-                // Дефолт: черный
-                return { fillColor: "#000", color: "#111", weight: 0.5, fillOpacity: 0.9 };
+                return { fillColor: "#000", color: "#111", weight: 0.5, fillOpacity: 0.8 };
             }
         }).addTo(map);
     }
 
-    // Обновление логов
     function updateLog() {
         const log = document.getElementById('log');
-        log.innerHTML = Object.keys(alerts).map(k => `<div class="alert-row">${k}: ${alerts[k].status}</div>`).join('');
+        const keys = Object.keys(alerts);
+        log.innerHTML = keys.length > 0 
+            ? keys.map(k => `<div class="log-item">${k}: ${alerts[k].status}</div>`).join('') 
+            : "<div class='log-item' style='color:#00ff41'>STATUS: CLEAR</div>";
     }
-    
-    setInterval(() => {
-        fetch('alert.json?t=' + Date.now())
-            .then(r => r.json())
-            .then(d => { alerts = d; renderMap(); updateLog(); });
-    }, 5000);
 </script>
 </body>
 </html>
