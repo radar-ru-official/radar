@@ -5,20 +5,27 @@
     <title>Radar Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; background: #0e0e0e; }
         #map { height: 100vh; width: 100%; }
+        
         #panel {
-            position: absolute; top: 10px; left: 10px; z-index: 1000;
-            background: #000; color: #fff; padding: 15px; border-radius: 5px;
-            width: 250px; box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            position: absolute; top: 20px; left: 20px; z-index: 1000;
+            background: rgba(20, 20, 20, 0.8); backdrop-filter: blur(10px);
+            color: #fff; padding: 20px; border-radius: 15px;
+            width: 300px; border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         }
-        .item { margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        h3 { margin: 0 0 15px 0; font-size: 18px; color: #ff4757; text-transform: uppercase; }
+        .alert-item { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #333; font-size: 14px; }
+        .alert-item b { display: block; color: #fff; font-size: 16px; }
+        .source { font-size: 11px; color: #888; margin-top: 4px; font-style: italic; }
     </style>
 </head>
 <body>
 
 <div id="panel">
-    <div id="alerts">Нет угроз</div>
+    <h3>Карта угроз</h3>
+    <div id="alerts">Список пуст</div>
 </div>
 
 <div id="map"></div>
@@ -37,36 +44,29 @@
         "Ростов-на-Дону": [47.2357, 39.7015], "Омск": [54.9885, 73.3245],
         "Краснодар": [45.0355, 38.9753], "Воронеж": [51.6608, 39.2003],
         "Пермь": [58.0097, 56.2294], "Волгоград": [48.7080, 44.5133],
-        "Ярославль": [57.6261, 39.8845], "Рязань": [54.6095, 39.7126],
-        "Липецк": [52.6031, 39.5708], "Тула": [54.1961, 37.6182],
-        "Калининград": [54.7104, 20.4522], "Саратов": [51.5434, 46.0084],
-        "Тольятти": [53.5078, 49.4177], "Ижевск": [56.8526, 53.2069],
-        "Ульяновск": [54.3142, 48.4031], "Оренбург": [51.7666, 55.0988],
-        "Пенза": [53.2273, 44.9983], "Набережные Челны": [55.7423, 52.4231],
-        "Астрахань": [46.3476, 48.0302], "Махачкала": [42.9831, 47.5046],
-        "Тюмень": [57.1523, 65.5273], "Барнаул": [53.3548, 83.7698],
-        "Иркутск": [52.2870, 104.3050], "Хабаровск": [48.4726, 135.0577],
-        "Владивосток": [43.1198, 131.8869], "Томск": [56.4977, 84.9744],
-        "Кемерово": [55.3450, 86.0640], "Новокузнецк": [53.7557, 87.1099]
+        "Ярославль": [57.6261, 39.8845], "Рязань": [54.6095, 39.7126]
     };
 
     var markers = {};
-    var alertsDiv = document.getElementById('alerts');
-
     function update() {
         fetch('alert.json?t=' + new Date().getTime())
             .then(r => r.json())
             .then(d => {
                 for (let m in markers) { map.removeLayer(markers[m]); }
-                alertsDiv.innerHTML = '';
+                let alerts = document.getElementById('alerts');
+                alerts.innerHTML = '';
                 
                 let active = false;
                 for (let p in d) {
                     active = true;
-                    alertsDiv.innerHTML += `<div class="item"><b>${p}</b><br>${d[p].status}</div>`;
-                    if (coords[p]) markers[p] = L.marker(coords[p]).addTo(map).bindPopup(`<b>${p}</b><br>${d[p].status}`);
+                    let source = d[p].source || "Неизвестно";
+                    alerts.innerHTML += `<div class="alert-item"><b>${p}</b>${d[p].status}<div class="source">Источник: ${source}</div></div>`;
+                    if (coords[p]) {
+                        markers[p] = L.marker(coords[p]).addTo(map)
+                            .bindPopup(`<b>${p}</b><br>${d[p].status}<br><small>Источник: ${source}</small>`);
+                    }
                 }
-                if (!active) alertsDiv.innerHTML = 'Все чисто.';
+                if (!active) alerts.innerHTML = 'Все чисто.';
             });
     }
 
