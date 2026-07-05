@@ -2,70 +2,66 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Радар - Интерактивная карта</title>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <title>Карта Радар</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; background-color: #1a1c23; color: #ffffff; font-family: sans-serif; overflow: hidden; }
-        #map-container { width: 100vw; height: 100vh; }
-        .region { fill: #2a2d37; stroke: #1a1c23; stroke-width: 0.5px; transition: fill 0.3s; cursor: pointer; }
-        .region:hover { fill: #4682b4; }
-        #panel { position: absolute; top: 20px; left: 20px; background: rgba(34, 37, 44, 0.9); padding: 15px; border-radius: 8px; z-index: 10; width: 300px; border: 1px solid #333; }
+        body, html { margin: 0; padding: 0; height: 100%; }
+        #map { height: 100vh; width: 100%; }
     </style>
 </head>
 <body>
-    <div id="panel">
-        <div id="panel-title" style="font-weight:bold; margin-bottom:10px;">Обстановка штатная</div>
-        <div id="panel-status">🟢 Все спокойно.</div>
-    </div>
-    <div id="map-container"></div>
 
-    <script>
-        const width = window.innerWidth, height = window.innerHeight;
-        const svg = d3.select("#map-container").append("svg").attr("width", width).attr("height", height);
-        const g = svg.append("g");
+<div id="map"></div>
 
-        const projection = d3.geoMercator().center([100, 65]).scale(600).translate([width / 2, height / 2]);
-        const path = d3.geoPath().projection(projection);
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    var map = L.map('map').setView([55.0, 45.0], 5);
 
-        let currentAlerts = {};
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Спутник'
+    }).addTo(map);
 
-        d3.json("russia.geojson").then(data => {
-            g.selectAll("path").data(data.features).enter().append("path")
-                .attr("class", "region")
-                .attr("d", path)
-                .attr("data-name", d => d.properties.name);
-            fetchAlertData();
-            setInterval(fetchAlertData, 10000);
-        });
+    var coords = {
+        "Москва": [55.7558, 37.6173], "Санкт-Петербург": [59.9343, 30.3351],
+        "Новосибирск": [55.0084, 82.9357], "Екатеринбург": [56.8389, 60.6057],
+        "Казань": [55.7961, 49.1064], "Нижний Новгород": [56.3261, 44.0058],
+        "Красноярск": [56.0153, 92.8932], "Челябинск": [55.1549, 61.4291],
+        "Самара": [53.2001, 50.1500], "Уфа": [54.7431, 55.9678],
+        "Ростов-на-Дону": [47.2357, 39.7015], "Омск": [54.9885, 73.3245],
+        "Краснодар": [45.0355, 38.9753], "Воронеж": [51.6608, 39.2003],
+        "Пермь": [58.0097, 56.2294], "Волгоград": [48.7080, 44.5133],
+        "Ярославль": [57.6261, 39.8845], "Рязань": [54.6095, 39.7126],
+        "Липецк": [52.6031, 39.5708], "Тула": [54.1961, 37.6182],
+        "Калининград": [54.7104, 20.4522], "Саратов": [51.5434, 46.0084],
+        "Тольятти": [53.5078, 49.4177], "Ижевск": [56.8526, 53.2069],
+        "Ульяновск": [54.3142, 48.4031], "Оренбург": [51.7666, 55.0988],
+        "Пенза": [53.2273, 44.9983], "Набережные Челны": [55.7423, 52.4231],
+        "Астрахань": [46.3476, 48.0302], "Махачкала": [42.9831, 47.5046],
+        "Тюмень": [57.1523, 65.5273], "Барнаул": [53.3548, 83.7698],
+        "Иркутск": [52.2870, 104.3050], "Хабаровск": [48.4726, 135.0577],
+        "Владивосток": [43.1198, 131.8869], "Томск": [56.4977, 84.9744],
+        "Кемерово": [55.3450, 86.0640], "Новокузнецк": [53.7557, 87.1099]
+    };
 
-        async function fetchAlertData() {
-            try {
-                const response = await fetch('alert.json?t=' + Date.now());
-                currentAlerts = await response.json();
-                
-                const panelStatus = document.getElementById("panel-status");
-                const panelTitle = document.getElementById("panel-title");
-                
-                if (Object.keys(currentAlerts).length > 0) {
-                    panelTitle.innerText = "Активные угрозы!";
-                    panelTitle.style.color = "#ff4444";
-                    panelStatus.innerHTML = Object.entries(currentAlerts).map(([place, info]) => 
-                        `<div style="margin-bottom:5px;"><b>${place}</b>: ${info.status}</div>`).join('');
-                } else {
-                    panelTitle.innerText = "Обстановка штатная";
-                    panelTitle.style.color = "#ffffff";
-                    panelStatus.innerHTML = "🟢 Все спокойно.";
-                }
-
-                g.selectAll(".region").style("fill", function(d) {
-                    const name = d.properties.name.toLowerCase();
-                    for (const [place, info] of Object.entries(currentAlerts)) {
-                        if (name.includes(place.toLowerCase()) || place.toLowerCase().includes(name)) return info.color;
+    var markers = {};
+    function loadAlerts() {
+        fetch('alert.json?t=' + new Date().getTime())
+            .then(res => res.json())
+            .then(data => {
+                for (let m in markers) { map.removeLayer(markers[m]); }
+                for (let place in data) {
+                    let info = data[place];
+                    let latLng = coords[place];
+                    if (latLng) {
+                        markers[place] = L.marker(latLng).addTo(map)
+                            .bindPopup(`<b>${place}</b><br>${info.status}`);
                     }
-                    return "#2a2d37";
-                });
-            } catch(e) { console.log("Ждем данные..."); }
-        }
-    </script>
+                }
+            });
+    }
+
+    setInterval(loadAlerts, 5000);
+    loadAlerts();
+</script>
 </body>
 </html>
