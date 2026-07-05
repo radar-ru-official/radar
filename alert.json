@@ -1,7 +1,1 @@
-{
-  "active": false,
-  "place": "РФ",
-  "status": "🟢 Отбой угроз. Все спокойно.",
-  "color": "#22252c",
-  "type": "clear"
-}
+{"active": true, "place": "Пенза", "status": "🟡 Беспилотная опасность. Будьте бдительны.", "color": "#d4af37", "type": "danger_bpla"}
