@@ -2,81 +2,80 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>MONITORING CENTER | LIVE</title>
+    <title>LIVE MONITORING CENTER</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --bg: #050505; --panel: rgba(10, 10, 12, 0.95); --uab: #ff0000; --rocket: #b30000; --alarm: #e67e22; }
-        body { margin: 0; background: var(--bg); color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        body { margin: 0; background: #050505; color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         #map { height: 100vh; width: 100%; filter: contrast(1.1) brightness(0.9); }
         
-        .dashboard { position: absolute; top: 20px; left: 20px; z-index: 1000; width: 340px; height: 90vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid #222; box-shadow: 0 0 20px rgba(0,0,0,1); padding: 20px; border-left: 4px solid #333; }
-        .header { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 15px; }
-        .title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 1px; }
-        .status { font-size: 10px; color: #555; margin-top: 5px; text-transform: uppercase; }
+        /* Панель управления */
+        .panel { position: absolute; top: 20px; left: 20px; z-index: 1000; width: 340px; height: 90vh; background: rgba(10, 10, 12, 0.95); border-left: 4px solid #0056b3; padding: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.8); display: flex; flex-direction: column; }
+        .header { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .title { font-size: 16px; font-weight: bold; color: #fff; }
+        .time { font-size: 11px; color: #00ff00; margin-top: 5px; font-family: monospace; }
         
-        #alerts-container { flex-grow: 1; overflow-y: auto; padding-right: 5px; }
-        #alerts-container::-webkit-scrollbar { width: 4px; }
-        #alerts-container::-webkit-scrollbar-thumb { background: #333; }
-
-        .card { background: #0e0e10; padding: 12px; margin-bottom: 8px; border-left: 3px solid #555; border-radius: 2px; }
-        .card.uab { border-color: var(--uab); background: #1a0505; }
-        .card.rocket { border-color: var(--rocket); }
-        .card.alarm { border-color: var(--alarm); }
+        /* Списки угроз */
+        #alerts-container { overflow-y: auto; flex-grow: 1; }
+        .card { background: #111; padding: 12px; margin-bottom: 10px; border-left: 4px solid #444; }
+        .card.uab { border-color: #ff0000; background: #1a0505; }
+        .card.rocket { border-color: #b30000; }
+        .card.alarm { border-color: #e67e22; }
         
-        .reg { font-weight: 600; font-size: 13px; color: #fff; }
-        .txt { font-size: 11px; color: #aaa; margin-top: 3px; }
+        .region-name { font-weight: bold; font-size: 14px; display: block; margin-bottom: 4px; }
+        .threat-type { font-size: 12px; color: #ccc; }
     </style>
 </head>
 <body>
 
-<div class="dashboard">
+<div class="panel">
     <div class="header">
         <div class="title">СИТУАЦИОННЫЙ ЦЕНТР</div>
-        <div class="status" id="last-sync">Инициализация системы...</div>
+        <div class="time" id="update-time">ОБНОВЛЕНИЕ: --:--:--</div>
     </div>
-    <div id="alerts-container">
-        <div class="card">Ожидание данных...</div>
-    </div>
+    <div id="alerts-container">Загрузка данных...</div>
 </div>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map', {zoomControl: false}).setView([50.0, 36.0], 6);
-    
-    // Темная карта (стиль CartoDB Dark)
+    const map = L.map('map', {zoomControl: false}).setView([54.0, 37.0], 6);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
     function update() {
+        // Добавляем ?t= для защиты от кэширования
         fetch('alert.json?t=' + Date.now())
         .then(r => r.json())
         .then(data => {
             const container = document.getElementById('alerts-container');
-            const sync = document.getElementById('last-sync');
+            const timeEl = document.getElementById('update-time');
             let html = '';
-            let keys = Object.keys(data);
             
-            if (keys.length === 0) {
-                html = '<div class="card">Все зоны под контролем.</div>';
-            } else {
-                keys.forEach(k => {
-                    let s = data[k].status.toLowerCase();
-                    let cls = s.includes('уаб') ? 'uab' : 
-                              s.includes('ракетная') ? 'rocket' : 'alarm';
-                    html += `
-                        <div class="card ${cls}">
-                            <div class="reg">${k}</div>
-                            <div class="txt">${data[k].status}</div>
-                        </div>`;
-                });
+            // Обновляем время
+            timeEl.innerText = "ОБНОВЛЕНО: " + new Date().toLocaleTimeString();
+
+            // Перебор данных из JSON
+            for (let region in data) {
+                let status = typeof data[region] === 'object' ? data[region].status : data[region];
+                let s = status.toLowerCase();
+                let cls = s.includes('уаб') ? 'uab' : 
+                          s.includes('ракетная') ? 'rocket' : 
+                          s.includes('тревога') ? 'alarm' : '';
+                
+                html += `
+                    <div class="card ${cls}">
+                        <span class="region-name">${region}</span>
+                        <span class="threat-type">${status}</span>
+                    </div>`;
             }
-            container.innerHTML = html;
-            sync.innerText = 'ОБНОВЛЕНО: ' + new Date().toLocaleTimeString();
+            container.innerHTML = html || '<div class="card">Все зоны под контролем.</div>';
         })
-        .catch(() => { document.getElementById('last-sync').innerText = "ОШИБКА СВЯЗИ"; });
+        .catch(() => {
+            document.getElementById('update-time').innerText = "ОШИБКА СВЯЗИ";
+        });
     }
 
+    // Обновление каждые 3 секунды
     setInterval(update, 3000);
     update();
 </script>
