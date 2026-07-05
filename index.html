@@ -2,114 +2,111 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Радар - Мониторинг БПЛА по РФ</title>
+    <title>Radar System | Strategic Monitoring</title>
     <style>
-        body {
-            background-color: #121212; /* Темный фон для стиля радара */
-            color: #ffffff;
-            font-family: 'Arial', sans-serif;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
+        :root {
+            --bg: #050505; --panel: #0d0d0d; --border: #222;
+            --yellow: #ffcc00; --red: #ff0000; --dark-red: #8b0000; --brown: #8b4513;
         }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        h1 {
-            color: #ff4444;
-            text-transform: uppercase;
-        }
-        #alerts-list {
-            margin-top: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        .alert-card {
-            background-color: #2a0000; /* Темно-красный фон */
-            border-left: 5px solid #ff0000;
-            padding: 15px;
-            border-radius: 5px;
-            text-align: left;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        .alert-region {
-            font-size: 1.3em;
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #ff6666;
-        }
-        .alert-status {
-            font-size: 1.1em;
-            color: #dddddd;
-        }
-        .safe {
-            background-color: #003300;
-            border-left: 5px solid #00ff00;
-            padding: 20px;
-            border-radius: 5px;
-            color: #00ff00;
-            font-size: 1.2em;
-        }
+        body { background: var(--bg); color: #e0e0e0; font-family: 'Inter', sans-serif; margin: 0; }
+        .flag-bar { height: 4px; width: 100%; background: linear-gradient(90deg, #fff 33%, #0039a6 33%, #0039a6 66%, #d52b1e 66%); box-shadow: 0 0 15px rgba(255,255,255,0.3); }
+        .container { display: grid; grid-template-columns: 1fr 350px; gap: 20px; padding: 20px; height: 90vh; }
+        #map-area { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        #panel-area { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; overflow-y: auto; }
+        #map-area svg { width: 100%; height: 100%; max-height: 80vh; }
+        #map-area path { fill: #1a1a1a; stroke: #333; stroke-width: 1px; transition: fill 0.5s ease; cursor: default; }
+        .threat-yellow { fill: var(--yellow) !important; stroke: #fff !important; }
+        .threat-red { fill: var(--red) !important; stroke: #fff !important; }
+        .threat-dark-red { fill: var(--dark-red) !important; stroke: #fff !important; }
+        .threat-brown { fill: var(--brown) !important; stroke: #fff !important; }
+        .alert-card { padding: 12px; margin-bottom: 10px; border-left: 4px solid #555; background: #151515; border-radius: 0 4px 4px 0; font-size: 0.9rem; animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
     </style>
 </head>
 <body>
+    <div class="flag-bar"></div>
     <div class="container">
-        <h1>Радар: Воздушная обстановка РФ</h1>
-        <p>Автоматическое обновление данных...</p>
-        
-        <!-- СЮДА МОЖЕШЬ ВСТАВИТЬ СВОЮ SVG КАРТУ РОССИИ ЕСЛИ ОНА ЕСТЬ -->
-        
-        <div id="alerts-list">
-            <p>Загрузка данных с серверов...</p>
+        <div id="map-area">Загрузка карты...</div>
+        <div id="panel-area">
+            <h2 style="font-size: 1.2rem; margin-top:0; color: #aaa;">STATUS MONITOR</h2>
+            <div id="alerts-list">Ожидание данных...</div>
         </div>
     </div>
 
     <script>
-        async function loadAlerts() {
+        // Полный маппинг: от западных границ до Урала и Севера
+        const regionMapping = {
+            // Юг и Черноземье
+            "Белгородская область": "RU-BEL", "Курская область": "RU-KRS",
+            "Брянская область": "RU-BRY", "Тульская область": "RU-TUL",
+            "Орловская область": "RU-ORL", "Липецкая область": "RU-LIP",
+            "Воронежская область": "RU-VOR", "Московская область": "RU-MOS",
+            "г. Москва": "RU-MOW", "Калужская область": "RU-KLU",
+            "Рязанская область": "RU-RYA", "Тамбовская область": "RU-TAM",
+            "Краснодарский край": "RU-KDA", "Ростовская область": "RU-ROS",
+            "Республика Крым": "RU-CR", "Севастополь": "RU-SEV",
+            "Смоленская область": "RU-SMO", "Тверская область": "RU-TVE",
+            "Ярославская область": "RU-YAR", "Владимирская область": "RU-VLA",
+            "Волгоградская область": "RU-VGG",
+            // Поволжье и Центр
+            "Нижегородская область": "RU-NIZ", "Самарская область": "RU-SAM",
+            "Саратовская область": "RU-SAR", "Пензенская область": "RU-PNZ",
+            "Республика Татарстан": "RU-TA", "Республика Башкортостан": "RU-BA",
+            // Урал и Глубь
+            "Пермский край": "RU-PER", "Свердловская область": "RU-SVE",
+            "Челябинская область": "RU-CHE", "Курганская область": "RU-KGN",
+            "Оренбургская область": "RU-ORE",
+            // Север
+            "г. Санкт-Петербург": "RU-SPE", "Ленинградская область": "RU-LEN",
+            "Мурманская область": "RU-MUR", "Архангельская область": "RU-ARK",
+            "Республика Коми": "RU-KO", "Карелия": "RU-KR"
+        };
+
+        const threatMap = {
+            'опасность по бпла': 'threat-yellow',
+            'тревога по бпла': 'threat-red', 'работа пво': 'threat-red',
+            'фиксация бпла': 'threat-red', 'угроза атаки': 'threat-red',
+            'ракетная опасность': 'threat-dark-red',
+            'уаб опасность': 'threat-brown', 'авиационная опасность': 'threat-brown'
+        };
+
+        async function init() {
             try {
-                // Загружаем alert.json. ?t= добавляем чтобы браузер не кэшировал старые данные
-                const response = await fetch('alert.json?t=' + new Date().getTime());
-                const data = await response.json();
-                
-                const list = document.getElementById('alerts-list');
-                list.innerHTML = ''; // Очищаем экран перед загрузкой новых данных
-
-                const regions = Object.keys(data);
-
-                // Если alert.json пустой (нет угроз)
-                if (regions.length === 0) {
-                    list.innerHTML = '<div class="safe">✅ В данный момент угроз не зафиксировано. Небо чистое.</div>';
-                    return;
-                }
-
-                // Если угрозы есть, выводим их
-                for (let region in data) {
-                    const status = data[region];
-                    
-                    const card = document.createElement('div');
-                    card.className = 'alert-card';
-                    card.innerHTML = `
-                        <div class="alert-region">🚨 ${region}</div>
-                        <div class="alert-status">${status}</div>
-                    `;
-                    list.appendChild(card);
-                    
-                    // ЕСЛИ У ТЕБЯ ЕСТЬ SVG КАРТА, СКРИПТ МОЖЕТ ЕЕ КРАСИТЬ ТУТ.
-                    // Например, если у региона на карте id совпадает с названием:
-                    // try { document.getElementById(region).style.fill = 'red'; } catch(e) {}
-                }
-            } catch (error) {
-                console.error("Ошибка загрузки alert.json", error);
-            }
+                const response = await fetch('map.svg');
+                document.getElementById('map-area').innerHTML = await response.text();
+                updateDashboard();
+                setInterval(updateDashboard, 3000);
+            } catch(e) { document.getElementById('map-area').innerHTML = "Ошибка загрузки map.svg"; }
         }
 
-        // Запускаем сразу при входе
-        loadAlerts();
-        // Обновляем каждые 10 секунд автоматически
-        setInterval(loadAlerts, 10000);
+        async function updateDashboard() {
+            try {
+                const response = await fetch('alert.json?t=' + Date.now());
+                const data = await response.json();
+                document.querySelectorAll('#map-area path').forEach(p => p.className.baseVal = '');
+                const list = document.getElementById('alerts-list');
+                list.innerHTML = '';
+                
+                let hasAlerts = false;
+                for (let reg in data) {
+                    const status = data[reg].toLowerCase();
+                    const svgId = regionMapping[reg];
+                    if (svgId) {
+                        const el = document.getElementById(svgId);
+                        for (let key in threatMap) {
+                            if (status.includes(key)) { if(el) el.className.baseVal = threatMap[key]; break; }
+                        }
+                    }
+                    const card = document.createElement('div');
+                    card.className = 'alert-card';
+                    card.innerHTML = `<strong>${reg}</strong><br><span style="color:#bbb">${data[reg]}</span>`;
+                    list.appendChild(card);
+                    hasAlerts = true;
+                }
+                if (!hasAlerts) list.innerHTML = '<div class="alert-card" style="border-left-color:#2ecc71; color:#2ecc71;">✅ Небо чистое.</div>';
+            } catch(e) {}
+        }
+        init();
     </script>
 </body>
 </html>
