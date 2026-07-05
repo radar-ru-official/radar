@@ -33,8 +33,9 @@
         ymaps.ready(init);
 
         function init() {
+            // Инициализация карты сразу по дефолту на всю Россию
             myMap = new ymaps.Map("map", {
-                center: [55.7, 41.6],
+                center: [55.7558, 37.6173], // Москва как стартовый центр карты
                 zoom: 5,
                 controls: ['zoomControl']
             });
@@ -43,6 +44,7 @@
         }
 
         async function findPlace(name, txt, clr, type) {
+            if (!name || name === "РФ") return; // Защита от пустых значений
             try {
                 let res = await ymaps.geocode(name + ', Россия');
                 let firstGeoObject = res.geoObjects.get(0);
@@ -54,13 +56,12 @@
                     let html = `<div class="popup-title">${name}</div>
                                 <div class="popup-status" style="color:${clr};">${txt}</div>`;
 
-                    // Подбираем иконку Яндекса под тип события
                     let iconPreset = 'islands#redIcon';
                     if (type === 'fire') iconPreset = 'islands#orangeFlameIcon'; 
                     if (type === 'down') iconPreset = 'islands#blueShieldIcon';  
-                    if (type === 'danger_bpla') iconPreset = 'islands#yellowCircleDotIcon'; // Желтая для опасности
-                    if (type === 'fly_bpla') iconPreset = 'islands#redCircleDotIcon'; // Красная для пролета БПЛА
-                    if (type === 'rocket') iconPreset = 'islands#darkRedCircleDotIcon'; // Темно-красная для ракеты
+                    if (type === 'danger_bpla') iconPreset = 'islands#yellowCircleDotIcon';
+                    if (type === 'fly_bpla') iconPreset = 'islands#redCircleDotIcon';
+                    if (type === 'rocket') iconPreset = 'islands#darkRedCircleDotIcon';
 
                     myPlacemark = new ymaps.Placemark(coords, {
                         balloonContent: html
@@ -78,6 +79,10 @@
         async function loadData() {
             try {
                 let r = await fetch('alert.json?t=' + Date.now());
+                if (!r.ok) {
+                    // Если файла alert.json еще нет на гитхабе, карта просто продолжит отображаться пустой
+                    return;
+                }
                 let j = await r.json();
                 if (j && j.active) {
                     findPlace(j.place, j.status, j.color, j.type);
