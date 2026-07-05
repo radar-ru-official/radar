@@ -8,31 +8,29 @@
         body { margin: 0; background: #050505; color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         #map { height: 100vh; width: 100%; filter: contrast(1.1) brightness(0.9); }
         
-        /* Панель управления */
-        .panel { position: absolute; top: 20px; left: 20px; z-index: 1000; width: 340px; height: 90vh; background: rgba(10, 10, 12, 0.95); border-left: 4px solid #0056b3; padding: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.8); display: flex; flex-direction: column; }
+        .panel { position: absolute; top: 20px; left: 20px; z-index: 1000; width: 340px; height: 90vh; background: rgba(10, 10, 12, 0.95); border-left: 4px solid #0056b3; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,1); }
         .header { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .title { font-size: 16px; font-weight: bold; color: #fff; }
-        .time { font-size: 11px; color: #00ff00; margin-top: 5px; font-family: monospace; }
+        .time { font-size: 11px; color: #00ff00; font-family: monospace; }
         
-        /* Списки угроз */
         #alerts-container { overflow-y: auto; flex-grow: 1; }
         .card { background: #111; padding: 12px; margin-bottom: 10px; border-left: 4px solid #444; }
-        .card.uab { border-color: #ff0000; background: #1a0505; }
-        .card.rocket { border-color: #b30000; }
-        .card.alarm { border-color: #e67e22; }
         
-        .region-name { font-weight: bold; font-size: 14px; display: block; margin-bottom: 4px; }
-        .threat-type { font-size: 12px; color: #ccc; }
+        /* Цвета угрозы */
+        .uab { border-color: #ff0000; background: #2a0505; }
+        .rocket { border-color: #b30000; background: #1a0505; }
+        .pvo { border-color: #0088cc; background: #051a2a; }
+        .bpla { border-color: #f1c40f; background: #2a2505; }
+        .alarm { border-color: #e67e22; background: #2a1505; }
     </style>
 </head>
 <body>
 
 <div class="panel">
     <div class="header">
-        <div class="title">СИТУАЦИОННЫЙ ЦЕНТР</div>
+        <div style="font-weight:bold;">СИТУАЦИОННЫЙ ЦЕНТР</div>
         <div class="time" id="update-time">ОБНОВЛЕНИЕ: --:--:--</div>
     </div>
-    <div id="alerts-container">Загрузка данных...</div>
+    <div id="alerts-container">Загрузка...</div>
 </div>
 
 <div id="map"></div>
@@ -42,40 +40,41 @@
     const map = L.map('map', {zoomControl: false}).setView([54.0, 37.0], 6);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-    function update() {
-        // Добавляем ?t= для защиты от кэширования
-        fetch('alert.json?t=' + Date.now())
-        .then(r => r.json())
-        .then(data => {
-            const container = document.getElementById('alerts-container');
-            const timeEl = document.getElementById('update-time');
-            let html = '';
-            
-            // Обновляем время
-            timeEl.innerText = "ОБНОВЛЕНО: " + new Date().toLocaleTimeString();
+    // СЮДА ДОБАВЛЯЙ КООРДИНАТЫ РЕГИОНОВ (без них карта будет пустой)
+    const regions = { "type": "FeatureCollection", "features": [
+        { "type": "Feature", "properties": { "name": "Московская" }, "geometry": { "type": "Polygon", "coordinates": [[[35.0, 54.5], [35.0, 56.5], [39.0, 56.5], [39.0, 54.5], [35.0, 54.5]]] } },
+        { "type": "Feature", "properties": { "name": "Тульская" }, "geometry": { "type": "Polygon", "coordinates": [[[36.0, 53.0], [36.0, 54.5], [38.5, 54.5], [38.5, 53.0], [36.0, 53.0]]] } }
+    ]};
 
-            // Перебор данных из JSON
-            for (let region in data) {
-                let status = typeof data[region] === 'object' ? data[region].status : data[region];
-                let s = status.toLowerCase();
-                let cls = s.includes('уаб') ? 'uab' : 
-                          s.includes('ракетная') ? 'rocket' : 
-                          s.includes('тревога') ? 'alarm' : '';
+    let geoLayer = L.geoJSON(regions, {
+        style: { color: "#333", weight: 1, fillColor: "#222", fillOpacity: 0.5 },
+        onEachFeature: (f, l) => l.bindPopup(f.properties.name)
+    }).addTo(map);
+
+    function update() {
+        fetch('alert.json?t=' + Date.now()).then(r => r.json()).then(data => {
+            document.getElementById('update-time').innerText = "ОБНОВЛЕНО: " + new Date().toLocaleTimeString();
+            let html = '';
+
+            geoLayer.eachLayer(layer => {
+                let name = layer.feature.properties.name;
+                let status = data[name] ? (typeof data[name] === 'object' ? data[name].status : data[name]) : null;
                 
-                html += `
-                    <div class="card ${cls}">
-                        <span class="region-name">${region}</span>
-                        <span class="threat-type">${status}</span>
-                    </div>`;
-            }
-            container.innerHTML = html || '<div class="card">Все зоны под контролем.</div>';
-        })
-        .catch(() => {
-            document.getElementById('update-time').innerText = "ОШИБКА СВЯЗИ";
+                if (status) {
+                    let s = status.toLowerCase();
+                    let cls = s.includes('уаб') ? 'uab' : s.includes('ракетная') ? 'rocket' : 
+                              s.includes('фиксация') ? 'pvo' : s.includes('бпла') ? 'bpla' : 'alarm';
+                    
+                    layer.setStyle({ fillColor: cls === 'uab' ? '#ff0000' : cls === 'pvo' ? '#0088cc' : cls === 'bpla' ? '#f1c40f' : '#e67e22', fillOpacity: 0.7 });
+                    html += `<div class="card ${cls}"><span style="font-weight:bold">${name}</span><br><span style="font-size:12px">${status}</span></div>`;
+                } else {
+                    layer.setStyle({ fillColor: "#222", fillOpacity: 0.5 });
+                }
+            });
+            document.getElementById('alerts-container').innerHTML = html || '<div class="card">Все зоны под контролем.</div>';
         });
     }
 
-    // Обновление каждые 3 секунды
     setInterval(update, 3000);
     update();
 </script>
