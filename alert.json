@@ -1,1 +1,1 @@
-{"active": true, "place": "Ростов", "status": "🟡 Беспилотная опасность. Будьте бдительны.", "color": "#d4af37", "type": "danger_bpla"}
+{"active": false, "place": "Ростов", "status": "🟢 Отбой угроз. Все спокойно.", "color": "#161b22", "type": "clear"}
